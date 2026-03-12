@@ -2,6 +2,9 @@
 .idea/
 /.claude/hooks/audit.log
 
+# Private project management
+runway/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

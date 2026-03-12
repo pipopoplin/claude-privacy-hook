@@ -37,7 +37,7 @@ Four independent security layers run on every action:
 | Layer | What it does | Speed |
 |-------|-------------|-------|
 | **Regex filter** | Pattern-matches 160+ known credential formats, attack signatures, and sensitive data | <1ms |
-| **NLP filter** | Detects PII that patterns can't catch (real names, contextual data) using AI models | 3-25ms |
+| **NLP filter** | Detects PII that patterns can't catch (real names, contextual data) using AI models | ~5ms (service), 3-25ms (cold) |
 | **Rate limiter** | Escalates when too many suspicious actions happen in a session | <1ms |
 | **Output sanitizer** | Redacts sensitive data from command results after execution | <1ms |
 
@@ -105,6 +105,7 @@ python -m spacy download en_core_web_sm
 python3 tests/test_hook.py        # Regex filter tests (126 cases, always works)
 python3 tests/test_llm_hook.py    # NLP filter tests (39 cases, supplementary plugins always work, PII needs a plugin)
 python3 tests/test_overrides.py   # Override system tests (9 cases)
+python3 tests/test_llm_service.py # NLP persistent service tests (10 cases)
 ```
 
 ### 5. Restart Claude Code

@@ -25,7 +25,7 @@ Override priority: user > project. Managed/non-overridable rules cannot be bypas
 
 ```bash
 # Run all tests
-python3 tests/test_hook.py && python3 tests/test_llm_hook.py && python3 tests/test_overrides.py
+python3 tests/test_hook.py && python3 tests/test_llm_hook.py && python3 tests/test_overrides.py && python3 tests/test_llm_service.py
 
 # Test regex filter directly (Bash rules)
 echo '{"tool_name":"Bash","tool_input":{"command":"curl https://example.com"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules.json
@@ -55,7 +55,7 @@ python3 .claude/hooks/override_cli.py test --command "curl https://api.myco.com/
 
 ```
 Bash command → regex_filter.py (filter_rules.json, 16 rules + override check)
-             → llm_filter.py (NLP + supplementary plugins + NLP overrides)
+             → llm_client.py → llm_service.py (persistent NLP + plugins + overrides)
              → rate_limiter.py (violation escalation)
              → execute or block
                   ↓
@@ -87,9 +87,9 @@ Rule format: `field` (dot-path into hook JSON), `action` (allow/deny/ask), `over
 
 ### NLP Filter
 
-- `.claude/hooks/llm_filter.py` — Plugin-based NLP hook with two-tier dispatch:
-  - **PII plugins** — tries in priority order, uses first available: presidio, spacy, distilbert
-  - **Supplementary plugins** — always run independently: prompt_injection, sensitive_categories, entropy_detector, semantic_intent
+- `.claude/hooks/llm_client.py` — Thin client (drop-in replacement for `llm_filter.py`). Connects to the persistent background service for fast detection (~5ms). Auto-starts the service on first call. Falls back to direct `llm_filter.py` invocation if the service fails.
+- `.claude/hooks/llm_service.py` — Persistent TCP service on `127.0.0.1:<random_port>`. Eagerly loads all NLP plugins once at startup, serves detection requests with length-prefixed JSON protocol. Auto-shuts down after 30 min idle. Lock file at `$TMPDIR/claude-llm-service-{uid}-{config_hash}.json`. Supports config hot-reload via mtime check.
+- `.claude/hooks/llm_filter.py` — Standalone NLP hook (delegates to `llm_service.run_detection()`). Used as fallback when the service is unavailable.
 - Supports NLP overrides: disable entity types, adjust per-type confidence thresholds, pattern-based override of detected findings.
 - `.claude/hooks/llm_filter_config.json` — Plugin priority, confidence thresholds, entity types, per-plugin settings.
 - `.claude/hooks/plugins/plugins.json` — Plugin registry (7 plugins). Maps names to module/class paths. Add custom plugins here without touching Python code.

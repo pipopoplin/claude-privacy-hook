@@ -18,31 +18,11 @@ Plugins (selected via config, first available wins):
 import importlib
 import json
 import os
+import re
 import sys
-import unicodedata
 
+from hook_utils import normalize_unicode, resolve_field
 
-# Homoglyph map: visually similar Unicode chars -> ASCII equivalents
-HOMOGLYPH_MAP = {
-    '\u0430': 'a', '\u0435': 'e', '\u043e': 'o', '\u0440': 'p',
-    '\u0441': 'c', '\u0443': 'y', '\u0445': 'x', '\u0456': 'i',
-    '\u03bf': 'o', '\u03b1': 'a', '\u03b9': 'i', '\u03ba': 'k',
-    '\u03bd': 'v', '\u03c1': 'p',
-    '\u0391': 'A', '\u0392': 'B', '\u0395': 'E', '\u0397': 'H',
-    '\u0399': 'I', '\u039a': 'K', '\u039c': 'M', '\u039d': 'N',
-    '\u039f': 'O', '\u03a1': 'P', '\u03a4': 'T', '\u03a5': 'Y',
-    '\u03a7': 'X',
-}
-ZERO_WIDTH_CHARS = {'\u200b', '\u200c', '\u200d', '\ufeff', '\u00ad', '\u2060'}
-_HOMOGLYPH_TRANS = str.maketrans(HOMOGLYPH_MAP)
-
-
-def normalize_unicode(text: str) -> str:
-    """Normalize Unicode to defeat homoglyph and zero-width bypasses."""
-    text = unicodedata.normalize("NFKC", text)
-    text = ''.join(c for c in text if c not in ZERO_WIDTH_CHARS)
-    text = text.translate(_HOMOGLYPH_TRANS)
-    return text
 
 def load_plugin_registry(hooks_dir: str) -> dict:
     """Load plugin registry from plugins/plugins.json."""
@@ -60,16 +40,6 @@ def load_plugin_registry(hooks_dir: str) -> dict:
 def load_config(path: str) -> dict:
     with open(path) as f:
         return json.load(f)
-
-
-def resolve_field(data: dict, field: str) -> str:
-    current = data
-    for part in field.split("."):
-        if isinstance(current, dict) and part in current:
-            current = current[part]
-        else:
-            return ""
-    return str(current) if current is not None else ""
 
 
 def load_plugin(name: str, plugin_config: dict, registry: dict):
@@ -127,7 +97,28 @@ def main():
     plugin_configs = config.get("plugins", {})
     min_confidence = config.get("min_confidence", 0.7)
     action = config.get("action", "deny")
-    entity_types = config.get("entity_types")
+    entity_types = list(config.get("entity_types") or [])
+
+    # Load overrides (user + project)
+    nlp_ovr: dict = {}
+    overrides: list = []
+    try:
+        from override_resolver import load_overrides, merge_nlp_overrides
+
+        overrides = load_overrides(hooks_dir)
+        nlp_ovr = merge_nlp_overrides(overrides)
+    except Exception:
+        pass
+
+    # Apply NLP overrides: filter disabled entity types
+    if nlp_ovr.get("disabled_entity_types"):
+        entity_types = [
+            e for e in entity_types
+            if e not in nlp_ovr["disabled_entity_types"]
+        ]
+
+    # Apply per-type confidence overrides
+    confidence_overrides = nlp_ovr.get("confidence_overrides", {})
 
     all_findings = []
     reporting_plugin = None
@@ -144,14 +135,17 @@ def main():
             continue
 
         try:
-            detections = plugin.detect(text, entity_types)
+            detections = plugin.detect(text, entity_types if entity_types else None)
         except Exception as e:
             print(f"Plugin {plugin_name} error: {e}", file=sys.stderr)
             continue
 
-        findings = [d for d in detections if d.score >= min_confidence]
-        if findings:
-            all_findings.extend(findings)
+        for d in detections:
+            threshold = confidence_overrides.get(d.entity_type, min_confidence)
+            if d.score >= threshold:
+                all_findings.append(d)
+
+        if all_findings:
             reporting_plugin = plugin
         break  # first_available: only try the first working PII plugin
 
@@ -165,7 +159,7 @@ def main():
             continue
 
         try:
-            detections = plugin.detect(text, entity_types)
+            detections = plugin.detect(text, entity_types if entity_types else None)
         except Exception as e:
             print(f"Plugin {plugin_name} error: {e}", file=sys.stderr)
             continue
@@ -175,6 +169,47 @@ def main():
             all_findings.extend(findings)
             if reporting_plugin is None:
                 reporting_plugin = plugin
+
+    # Check pattern overrides: remove findings whose detected text matches
+    # an override pattern targeting rule "llm_filter"
+    if overrides and all_findings:
+        try:
+            from override_resolver import check_override
+
+            dummy_rule = {"name": "llm_filter", "overridable": True}
+            filtered = []
+            overridden = []
+            for finding in all_findings:
+                override = check_override(overrides, dummy_rule, finding.text)
+                if override:
+                    overridden.append((finding, override))
+                else:
+                    filtered.append(finding)
+
+            # Log overridden findings
+            if overridden:
+                try:
+                    from audit_logger import log_event
+
+                    command = resolve_field(hook_input, "tool_input.command")
+                    for finding, override in overridden:
+                        log_event(
+                            log_dir=hooks_dir,
+                            filter_name="llm_filter",
+                            rule_name=override.get("override_name", "unknown"),
+                            action="override_allow",
+                            matched=[f"{finding.entity_type}: {finding.text}"],
+                            command=command,
+                            session_id=hook_input.get("session_id", ""),
+                            override_name=override.get("override_name", ""),
+                            override_source=override.get("source", ""),
+                        )
+                except Exception:
+                    pass
+
+            all_findings = filtered
+        except Exception:
+            pass
 
     if not all_findings:
         sys.exit(0)

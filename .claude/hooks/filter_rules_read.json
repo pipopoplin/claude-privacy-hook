@@ -7,6 +7,7 @@
       "field": "tool_input.file_path",
       "tool_name": "Read",
       "action": "deny",
+      "overridable": true,
       "match": "any",
       "message": "Access to sensitive file blocked. This file may contain credentials or system secrets.",
       "patterns": [

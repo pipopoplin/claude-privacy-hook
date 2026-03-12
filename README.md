@@ -102,8 +102,9 @@ python -m spacy download en_core_web_sm
 ### 4. Verify installation
 
 ```bash
-python3 test_hook.py        # Regex filter tests (126 cases, always works)
-python3 test_llm_hook.py    # NLP filter tests (39 cases, supplementary plugins always work, PII needs a plugin)
+python3 tests/test_hook.py        # Regex filter tests (126 cases, always works)
+python3 tests/test_llm_hook.py    # NLP filter tests (39 cases, supplementary plugins always work, PII needs a plugin)
+python3 tests/test_overrides.py   # Override system tests (9 cases)
 ```
 
 ### 5. Restart Claude Code
@@ -114,11 +115,48 @@ Hooks are loaded at session startup. Restart Claude Code or run `/hooks` to revi
 
 The hooks work out of the box. For customization:
 
-- **Allow a trusted endpoint** — add a URL pattern to `allow_trusted_endpoints` in `.claude/hooks/filter_rules.json`
+- **Allow a trusted endpoint** — add a URL pattern to `allow_trusted_endpoints` in `.claude/hooks/filter_rules.json`, or use the override CLI
 - **Adjust NLP sensitivity** — change `min_confidence` in `.claude/hooks/llm_filter_config.json` (lower = catches more, higher = fewer false positives)
 - **Disable a hook** — set `"enabled": false` in the config, or remove the hook entry from `.claude/settings.json`
 
 See the full [Configuration guide](docs/configuration.md) for all options.
+
+## Override System
+
+Rules use a three-layer override system so teams can add exceptions without editing rule files:
+
+| Layer | Scope | File | Can Override? |
+|-------|-------|------|---------------|
+| **Managed** | IT-enforced | `/etc/claude-code/hooks/managed_rules.json` | Cannot be overridden |
+| **Project** | Team-shared | `.claude/hooks/config_overrides.json` | Overrides `ask` rules only |
+| **User** | Personal | `~/.claude/hooks/config_overrides.json` | Overrides `ask` rules only |
+
+8 rules are hard `deny` (credentials, injection, exfiltration) — these cannot be overridden. 7 rules are soft `ask` (untrusted networks, internal IPs, employee IDs, etc.) — these can be overridden with the CLI:
+
+```bash
+# Allow a specific API endpoint
+python3 .claude/hooks/override_cli.py add --scope project \
+  --rule block_untrusted_network \
+  --pattern 'https?://api\.mycompany\.com' \
+  --label 'Company API' \
+  --reason 'Required for integration testing'
+
+# List all overrides
+python3 .claude/hooks/override_cli.py list
+
+# Validate overrides against current rules
+python3 .claude/hooks/override_cli.py validate
+
+# Test if a command would be overridden
+python3 .claude/hooks/override_cli.py test \
+  --command "curl https://api.mycompany.com/health" \
+  --rule block_untrusted_network
+
+# Remove an override
+python3 .claude/hooks/override_cli.py remove --scope project --name allow_company_api
+```
+
+For IT-managed deployment, see [`managed/README.md`](managed/README.md).
 
 ## Compliance Coverage
 

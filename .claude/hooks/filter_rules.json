@@ -6,6 +6,7 @@
       "description": "Block commands containing API keys, tokens, or credentials",
       "field": "tool_input.command",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Sensitive data detected in command. Remove credentials before running.",
       "patterns": [
@@ -43,43 +44,11 @@
       ]
     },
     {
-      "name": "block_employee_hr_ids",
-      "description": "Block commands containing employee IDs, HR numbers, or personnel identifiers",
-      "field": "tool_input.command",
-      "action": "deny",
-      "match": "any",
-      "message": "Employee/HR identifier detected. Remove personnel data before running.",
-      "patterns": [
-        {"pattern": "\\bEMP[-_]?\\d{4,8}\\b", "label": "Employee ID (EMP-NNNNN)"},
-        {"pattern": "\\bHR[-_]\\d{4,8}\\b", "label": "HR number (HR-NNNNN)"},
-        {"pattern": "\\bSTAFF[-_]?\\d{4,8}\\b", "label": "Staff ID (STAFF-NNNNN)"},
-        {"pattern": "\\bemployee[_-]?id\\s*[:=]\\s*['\"]?\\w{3,}", "label": "employee_id assignment"},
-        {"pattern": "\\bpersonnel[_-]?(number|id|no)\\s*[:=]\\s*['\"]?\\w{3,}", "label": "personnel number assignment"},
-        {"pattern": "\\bpayroll[_-]?(id|number|no)\\s*[:=]\\s*['\"]?\\w{3,}", "label": "payroll ID assignment"}
-      ]
-    },
-    {
-      "name": "block_iban_bank_accounts",
-      "description": "Block commands containing IBAN or bank account numbers",
-      "field": "tool_input.command",
-      "action": "deny",
-      "match": "any",
-      "message": "Bank account / IBAN detected. Remove financial data before running.",
-      "patterns": [
-        {"pattern": "\\b[A-Z]{2}\\d{2}\\s?[A-Z0-9]{4}\\s?\\d{4}\\s?\\d{4}\\s?\\d{4}\\s?(?:\\d{4}\\s?){0,4}\\d{0,4}\\b", "label": "IBAN"},
-        {"pattern": "\\bIBAN\\s*[:=]\\s*['\"]?[A-Z]{2}\\d{2}", "label": "IBAN assignment"},
-        {"pattern": "\\baccount[_-]?(?:number|num|no)\\s*[:=]\\s*['\"]?\\d{6,18}", "label": "Bank account number assignment"},
-        {"pattern": "\\brouting[_-]?(?:number|num|no)\\s*[:=]\\s*['\"]?\\d{9}", "label": "ABA routing number"},
-        {"pattern": "\\bsort[_-]?code\\s*[:=]\\s*['\"]?\\d{2}[-\\s]?\\d{2}[-\\s]?\\d{2}", "label": "UK sort code"},
-        {"pattern": "\\bswift\\s*[:=]\\s*['\"]?[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?", "label": "SWIFT/BIC code"},
-        {"pattern": "\\bBIC\\s*[:=]\\s*['\"]?[A-Z]{6}[A-Z0-9]{2}", "label": "BIC code"}
-      ]
-    },
-    {
       "name": "block_passport_licence",
       "description": "Block commands containing passport or driver licence numbers",
       "field": "tool_input.command",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Government ID (passport/licence) detected. Remove before running.",
       "patterns": [
@@ -95,6 +64,7 @@
       "description": "Block commands containing base64-encoded payloads (potential exfiltration or obfuscation)",
       "field": "tool_input.command",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Base64-encoded payload detected. This may be data exfiltration or obfuscation.",
       "patterns": [
@@ -112,6 +82,7 @@
       "description": "Block commands containing prompt injection or jailbreak phrases",
       "field": "tool_input.command",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Potential prompt injection detected. Command contains suspicious instruction patterns.",
       "patterns": [
@@ -135,6 +106,7 @@
       "description": "Block commands using shell obfuscation or eval to bypass filters",
       "field": "tool_input.command",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Shell obfuscation detected. Command uses eval, encoding, or variable tricks that may bypass security filters.",
       "patterns": [
@@ -158,6 +130,7 @@
       "description": "Block commands containing path traversal sequences that may escape intended directories",
       "field": "tool_input.command",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Path traversal detected. Command contains directory traversal sequences.",
       "patterns": [
@@ -172,12 +145,86 @@
       ]
     },
     {
+      "name": "block_dns_exfiltration",
+      "description": "Block DNS tools that may be used for data exfiltration via DNS queries",
+      "field": "tool_input.command",
+      "action": "deny",
+      "overridable": false,
+      "match": "any",
+      "message": "DNS exfiltration vector detected. DNS lookup tools can be used to exfiltrate data.",
+      "patterns": [
+        {"pattern": "\\b(dig|nslookup|host)\\b\\s+.*\\$\\(", "label": "DNS tool with command substitution"},
+        {"pattern": "\\b(dig|nslookup|host)\\b\\s+.*`", "label": "DNS tool with backtick expansion"},
+        {"pattern": "\\|\\s*(dig|nslookup|host)\\b", "label": "Pipe to DNS tool"},
+        {"pattern": "\\bdig\\b\\s+\\+short\\b", "label": "dig +short (common in exfil scripts)"},
+        {"pattern": "\\bdig\\b\\s+TXT\\b", "label": "dig TXT record query (data channel)"},
+        {"pattern": "\\bresolvectl\\s+query\\b", "label": "systemd-resolve query"}
+      ]
+    },
+    {
+      "name": "block_pipe_chain_exfiltration",
+      "description": "Block multi-stage pipe chains that combine data reading with network exfiltration",
+      "field": "tool_input.command",
+      "action": "deny",
+      "overridable": false,
+      "match": "any",
+      "message": "Pipe-chain exfiltration pattern detected. Command chains data extraction with network transmission.",
+      "patterns": [
+        {"pattern": "\\|.*\\|.*(curl|wget|nc|netcat|socat)\\b", "label": "Multi-stage pipe to network tool"},
+        {"pattern": "\\b(cat|head|tail|less|more|strings|xxd)\\b.*\\|.*(curl|wget|nc|netcat|ssh|scp)\\b", "label": "File read piped to network tool"},
+        {"pattern": ">[&]?\\s*/dev/tcp/", "label": "Redirect to /dev/tcp"},
+        {"pattern": ">[&]?\\s*/dev/udp/", "label": "Redirect to /dev/udp"},
+        {"pattern": "\\b(gzip|bzip2|xz|tar|zip)\\b.*\\|.*(curl|wget|nc|netcat)\\b", "label": "Compress and pipe to network"},
+        {"pattern": "\\|\\s*(openssl|gpg)\\s+.*\\|.*(curl|nc|netcat)\\b", "label": "Encrypt and pipe to network"},
+        {"pattern": "\\bmkfifo\\b", "label": "Named pipe creation (reverse shell component)"},
+        {"pattern": "\\b(bash|sh|zsh)\\s+-i\\s+>&\\s*/dev/tcp/", "label": "Reverse shell via /dev/tcp"},
+        {"pattern": "\\|\\s*mail\\b", "label": "Pipe to mail command"},
+        {"pattern": "\\|\\s*sendmail\\b", "label": "Pipe to sendmail"}
+      ]
+    },
+    {
+      "name": "block_employee_hr_ids",
+      "description": "Block commands containing employee IDs, HR numbers, or personnel identifiers",
+      "field": "tool_input.command",
+      "action": "ask",
+      "overridable": true,
+      "match": "any",
+      "message": "Employee/HR identifier detected. Remove personnel data before running.\nTo permanently allow, run:\n  python3 .claude/hooks/override_cli.py add --rule block_employee_hr_ids --pattern 'YOUR_PATTERN' --label 'Description'",
+      "patterns": [
+        {"pattern": "\\bEMP[-_]?\\d{4,8}\\b", "label": "Employee ID (EMP-NNNNN)"},
+        {"pattern": "\\bHR[-_]\\d{4,8}\\b", "label": "HR number (HR-NNNNN)"},
+        {"pattern": "\\bSTAFF[-_]?\\d{4,8}\\b", "label": "Staff ID (STAFF-NNNNN)"},
+        {"pattern": "\\bemployee[_-]?id\\s*[:=]\\s*['\"]?\\w{3,}", "label": "employee_id assignment"},
+        {"pattern": "\\bpersonnel[_-]?(number|id|no)\\s*[:=]\\s*['\"]?\\w{3,}", "label": "personnel number assignment"},
+        {"pattern": "\\bpayroll[_-]?(id|number|no)\\s*[:=]\\s*['\"]?\\w{3,}", "label": "payroll ID assignment"}
+      ]
+    },
+    {
+      "name": "block_iban_bank_accounts",
+      "description": "Block commands containing IBAN or bank account numbers",
+      "field": "tool_input.command",
+      "action": "ask",
+      "overridable": true,
+      "match": "any",
+      "message": "Bank account / IBAN detected. Remove financial data before running.\nTo permanently allow, run:\n  python3 .claude/hooks/override_cli.py add --rule block_iban_bank_accounts --pattern 'YOUR_PATTERN' --label 'Description'",
+      "patterns": [
+        {"pattern": "\\b[A-Z]{2}\\d{2}\\s?[A-Z0-9]{4}\\s?\\d{4}\\s?\\d{4}\\s?\\d{4}\\s?(?:\\d{4}\\s?){0,4}\\d{0,4}\\b", "label": "IBAN"},
+        {"pattern": "\\bIBAN\\s*[:=]\\s*['\"]?[A-Z]{2}\\d{2}", "label": "IBAN assignment"},
+        {"pattern": "\\baccount[_-]?(?:number|num|no)\\s*[:=]\\s*['\"]?\\d{6,18}", "label": "Bank account number assignment"},
+        {"pattern": "\\brouting[_-]?(?:number|num|no)\\s*[:=]\\s*['\"]?\\d{9}", "label": "ABA routing number"},
+        {"pattern": "\\bsort[_-]?code\\s*[:=]\\s*['\"]?\\d{2}[-\\s]?\\d{2}[-\\s]?\\d{2}", "label": "UK sort code"},
+        {"pattern": "\\bswift\\s*[:=]\\s*['\"]?[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?", "label": "SWIFT/BIC code"},
+        {"pattern": "\\bBIC\\s*[:=]\\s*['\"]?[A-Z]{6}[A-Z0-9]{2}", "label": "BIC code"}
+      ]
+    },
+    {
       "name": "block_sensitive_file_access",
       "description": "Block commands that read, copy, or exfiltrate sensitive system/config files",
       "field": "tool_input.command",
-      "action": "deny",
+      "action": "ask",
+      "overridable": true,
       "match": "any",
-      "message": "Access to sensitive file detected. This file may contain credentials or system secrets.",
+      "message": "Access to sensitive file detected. This file may contain credentials or system secrets.\nTo permanently allow, run:\n  python3 .claude/hooks/override_cli.py add --rule block_sensitive_file_access --pattern 'YOUR_PATTERN' --label 'Description'",
       "patterns": [
         {"pattern": "/etc/(passwd|shadow|sudoers)\\b", "label": "System auth files"},
         {"pattern": "/etc/ssh/ssh_host_[a-z_]+key\\b", "label": "SSH host keys"},
@@ -198,9 +245,10 @@
       "name": "block_database_connection_strings",
       "description": "Block commands containing database connection strings with embedded credentials",
       "field": "tool_input.command",
-      "action": "deny",
+      "action": "ask",
+      "overridable": true,
       "match": "any",
-      "message": "Database connection string detected. Remove credentials/connection details before running.",
+      "message": "Database connection string detected. Remove credentials/connection details before running.\nTo permanently allow, run:\n  python3 .claude/hooks/override_cli.py add --rule block_database_connection_strings --pattern 'YOUR_PATTERN' --label 'Description'",
       "patterns": [
         {"pattern": "(mysql|mariadb|postgres(ql)?|psql|mssql|mongodb(\\+srv)?|redis|amqp|rabbitmq|cockroachdb|couchdb)://[^\\s'\"]+@[^\\s'\"]+", "label": "Database URI with credentials (user@host)"},
         {"pattern": "\\bDATABASE_URL\\s*=\\s*['\"]?\\w+://", "label": "DATABASE_URL assignment"},
@@ -213,48 +261,13 @@
       ]
     },
     {
-      "name": "block_dns_exfiltration",
-      "description": "Block DNS tools that may be used for data exfiltration via DNS queries",
-      "field": "tool_input.command",
-      "action": "deny",
-      "match": "any",
-      "message": "DNS exfiltration vector detected. DNS lookup tools can be used to exfiltrate data.",
-      "patterns": [
-        {"pattern": "\\b(dig|nslookup|host)\\b\\s+.*\\$\\(", "label": "DNS tool with command substitution"},
-        {"pattern": "\\b(dig|nslookup|host)\\b\\s+.*`", "label": "DNS tool with backtick expansion"},
-        {"pattern": "\\|\\s*(dig|nslookup|host)\\b", "label": "Pipe to DNS tool"},
-        {"pattern": "\\bdig\\b\\s+\\+short\\b", "label": "dig +short (common in exfil scripts)"},
-        {"pattern": "\\bdig\\b\\s+TXT\\b", "label": "dig TXT record query (data channel)"},
-        {"pattern": "\\bresolvectl\\s+query\\b", "label": "systemd-resolve query"}
-      ]
-    },
-    {
-      "name": "block_pipe_chain_exfiltration",
-      "description": "Block multi-stage pipe chains that combine data reading with network exfiltration",
-      "field": "tool_input.command",
-      "action": "deny",
-      "match": "any",
-      "message": "Pipe-chain exfiltration pattern detected. Command chains data extraction with network transmission.",
-      "patterns": [
-        {"pattern": "\\|.*\\|.*(curl|wget|nc|netcat|socat)\\b", "label": "Multi-stage pipe to network tool"},
-        {"pattern": "\\b(cat|head|tail|less|more|strings|xxd)\\b.*\\|.*(curl|wget|nc|netcat|ssh|scp)\\b", "label": "File read piped to network tool"},
-        {"pattern": ">[&]?\\s*/dev/tcp/", "label": "Redirect to /dev/tcp"},
-        {"pattern": ">[&]?\\s*/dev/udp/", "label": "Redirect to /dev/udp"},
-        {"pattern": "\\b(gzip|bzip2|xz|tar|zip)\\b.*\\|.*(curl|wget|nc|netcat)\\b", "label": "Compress and pipe to network"},
-        {"pattern": "\\|\\s*(openssl|gpg)\\s+.*\\|.*(curl|nc|netcat)\\b", "label": "Encrypt and pipe to network"},
-        {"pattern": "\\bmkfifo\\b", "label": "Named pipe creation (reverse shell component)"},
-        {"pattern": "\\b(bash|sh|zsh)\\s+-i\\s+>&\\s*/dev/tcp/", "label": "Reverse shell via /dev/tcp"},
-        {"pattern": "\\|\\s*mail\\b", "label": "Pipe to mail command"},
-        {"pattern": "\\|\\s*sendmail\\b", "label": "Pipe to sendmail"}
-      ]
-    },
-    {
       "name": "block_internal_network_addresses",
       "description": "Block commands containing internal/private network addresses that may leak infrastructure details",
       "field": "tool_input.command",
-      "action": "deny",
+      "action": "ask",
+      "overridable": true,
       "match": "any",
-      "message": "Internal network address detected. Remove private infrastructure details before running.",
+      "message": "Internal network address detected. Remove private infrastructure details before running.\nTo permanently allow, run:\n  python3 .claude/hooks/override_cli.py add --rule block_internal_network_addresses --pattern 'YOUR_PATTERN' --label 'Description'",
       "patterns": [
         {"pattern": "\\b10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b", "label": "RFC1918 Class A (10.x.x.x)"},
         {"pattern": "\\b172\\.(1[6-9]|2[0-9]|3[01])\\.\\d{1,3}\\.\\d{1,3}\\b", "label": "RFC1918 Class B (172.16-31.x.x)"},
@@ -273,9 +286,10 @@
       "name": "block_customer_contract_ids",
       "description": "Block commands containing customer, contract, or business entity identifiers",
       "field": "tool_input.command",
-      "action": "deny",
+      "action": "ask",
+      "overridable": true,
       "match": "any",
-      "message": "Customer/contract identifier detected. Remove business identifiers before running.",
+      "message": "Customer/contract identifier detected. Remove business identifiers before running.\nTo permanently allow, run:\n  python3 .claude/hooks/override_cli.py add --rule block_customer_contract_ids --pattern 'YOUR_PATTERN' --label 'Description'",
       "patterns": [
         {"pattern": "\\bCUST[-_]?\\d{4,10}\\b", "label": "Customer ID (CUST-NNNNN)"},
         {"pattern": "\\bINV[-_]?\\d{4,10}\\b", "label": "Invoice ID (INV-NNNNN)"},
@@ -305,9 +319,10 @@
       "name": "block_untrusted_network",
       "description": "Block network calls to any host not matched by allow_trusted_endpoints above",
       "field": "tool_input.command",
-      "action": "deny",
+      "action": "ask",
+      "overridable": true,
       "match": "any",
-      "message": "Network call to untrusted endpoint. Add the host to allow_trusted_endpoints in .claude/hooks/filter_rules.json to permit it.",
+      "message": "Network call to untrusted endpoint. Add the host to allow_trusted_endpoints or run:\n  python3 .claude/hooks/override_cli.py add --rule block_untrusted_network --pattern 'https?://your-host' --label 'Your Host'",
       "patterns": [
         {"pattern": "\\b(curl|wget|netcat|socat|telnet|nmap)\\b", "label": "network tool"},
         {"pattern": "\\b(ssh|scp)\\b\\s+", "label": "remote shell/copy"},

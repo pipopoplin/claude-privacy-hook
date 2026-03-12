@@ -7,6 +7,7 @@
       "field": "tool_input.content",
       "tool_name": "Write|Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Sensitive data detected in file content. Remove credentials before writing.",
       "patterns": [
@@ -41,6 +42,7 @@
       "field": "tool_input.content",
       "tool_name": "Write|Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Private key detected in file content. Do not write private keys to files.",
       "patterns": [
@@ -53,6 +55,7 @@
       "field": "tool_input.content",
       "tool_name": "Write|Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Hardcoded password or secret detected. Use environment variables or a secrets manager instead.",
       "patterns": [
@@ -67,6 +70,7 @@
       "field": "tool_input.content",
       "tool_name": "Write|Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Database connection string detected. Use environment variables for database credentials.",
       "patterns": [
@@ -84,6 +88,7 @@
       "field": "tool_input.content",
       "tool_name": "Write|Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Social Security Number detected. Remove PII before writing to files.",
       "patterns": [
@@ -98,6 +103,7 @@
       "field": "tool_input.content",
       "tool_name": "Write|Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Credit card number detected. Remove payment card data before writing to files.",
       "patterns": [
@@ -115,6 +121,7 @@
       "field": "tool_input.content",
       "tool_name": "Write|Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Internal network address detected. Remove private infrastructure details before writing.",
       "patterns": [
@@ -129,6 +136,7 @@
       "field": "tool_input.new_string",
       "tool_name": "Edit",
       "action": "deny",
+      "overridable": false,
       "match": "any",
       "message": "Sensitive data detected in edit content. Remove credentials before editing.",
       "patterns": [

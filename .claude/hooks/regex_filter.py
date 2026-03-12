@@ -16,33 +16,8 @@ import json
 import os
 import re
 import sys
-import unicodedata
 
-
-# Homoglyph map: visually similar Unicode chars -> ASCII equivalents
-HOMOGLYPH_MAP = {
-    '\u0430': 'a', '\u0435': 'e', '\u043e': 'o', '\u0440': 'p',
-    '\u0441': 'c', '\u0443': 'y', '\u0445': 'x', '\u0456': 'i',
-    '\u03bf': 'o', '\u03b1': 'a', '\u03b9': 'i', '\u03ba': 'k',
-    '\u03bd': 'v', '\u03c1': 'p',
-    '\u0391': 'A', '\u0392': 'B', '\u0395': 'E', '\u0397': 'H',
-    '\u0399': 'I', '\u039a': 'K', '\u039c': 'M', '\u039d': 'N',
-    '\u039f': 'O', '\u03a1': 'P', '\u03a4': 'T', '\u03a5': 'Y',
-    '\u03a7': 'X',
-}
-ZERO_WIDTH_CHARS = {'\u200b', '\u200c', '\u200d', '\ufeff', '\u00ad', '\u2060'}
-_HOMOGLYPH_TRANS = str.maketrans(HOMOGLYPH_MAP)
-
-
-def normalize_unicode(text: str) -> str:
-    """Normalize Unicode to defeat homoglyph and zero-width bypasses."""
-    # NFKC: collapse fullwidth chars, ligatures, compatibility forms
-    text = unicodedata.normalize("NFKC", text)
-    # Strip zero-width characters
-    text = ''.join(c for c in text if c not in ZERO_WIDTH_CHARS)
-    # Map common homoglyphs to ASCII
-    text = text.translate(_HOMOGLYPH_TRANS)
-    return text
+from hook_utils import normalize_unicode, resolve_field
 
 
 def load_config(path: str) -> dict:
@@ -55,22 +30,9 @@ def load_config(path: str) -> dict:
     return config
 
 
-def resolve_field(data: dict, field: str) -> str:
-    """Resolve a dot-separated field path from the hook input JSON.
-
-    e.g. "tool_input.command" -> data["tool_input"]["command"]
-    """
-    parts = field.split(".")
-    current = data
-    for part in parts:
-        if isinstance(current, dict) and part in current:
-            current = current[part]
-        else:
-            return ""
-    return str(current) if current is not None else ""
-
-
-def evaluate_rules(rules: list[dict], hook_input: dict) -> dict | None:
+def evaluate_rules(
+    rules: list[dict], hook_input: dict, overrides: list | None = None
+) -> dict | None:
     """Evaluate rules in order. Returns first matching deny/ask, or None."""
     for rule in rules:
         if not rule.get("enabled", True):
@@ -118,6 +80,14 @@ def evaluate_rules(rules: list[dict], hook_input: dict) -> dict | None:
         if action == "allow":
             return {"decision": "allow"}
 
+        # Check overrides before returning deny/ask
+        if overrides:
+            from override_resolver import check_override
+
+            override = check_override(overrides, rule, value)
+            if override:
+                return {"decision": "allow", "override": override}
+
         reason = rule.get("message", "Blocked by regex filter rule.")
         if matches:
             reason += "\nMatched:\n" + "\n".join(f"  - {m}" for m in matches)
@@ -145,6 +115,11 @@ def main():
         print(f"Config file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
+    # Add hooks dir to path so imports work
+    hooks_dir = os.path.dirname(os.path.abspath(__file__))
+    if hooks_dir not in sys.path:
+        sys.path.insert(0, hooks_dir)
+
     config = load_config(config_path)
 
     try:
@@ -152,15 +127,42 @@ def main():
     except json.JSONDecodeError:
         sys.exit(0)
 
-    result = evaluate_rules(config["rules"], hook_input)
+    # Load overrides (user + project)
+    try:
+        from override_resolver import load_overrides
+
+        overrides = load_overrides(hooks_dir)
+    except Exception:
+        overrides = None
+
+    result = evaluate_rules(config["rules"], hook_input, overrides=overrides)
 
     if result is None or result["decision"] == "allow":
+        # Log override_allow events for audit
+        if result and result.get("override"):
+            try:
+                from audit_logger import log_event
+
+                command = resolve_field(hook_input, "tool_input.command")
+                log_event(
+                    log_dir=hooks_dir,
+                    filter_name="regex_filter",
+                    rule_name=result["override"].get("override_name", "unknown"),
+                    action="override_allow",
+                    matched=[],
+                    command=command,
+                    session_id=hook_input.get("session_id", ""),
+                    override_name=result["override"].get("override_name", ""),
+                    override_source=result["override"].get("source", ""),
+                )
+            except Exception:
+                pass
         sys.exit(0)
 
     # Audit log the blocked event
     try:
         from audit_logger import log_event
-        hooks_dir = os.path.dirname(os.path.abspath(__file__))
+
         command = resolve_field(hook_input, "tool_input.command")
         log_event(
             log_dir=hooks_dir,

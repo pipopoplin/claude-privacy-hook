@@ -16,6 +16,14 @@ The managed layer is the highest-priority security layer. Rules deployed here:
 | `managed_rules.json` | 8 hard-deny rules for Bash commands (credentials, injection, exfiltration) |
 | `managed_settings.json` | Claude Code settings template for hook registration |
 
+## Prerequisites
+
+Install the project first using the installation scripts (see main [README](../README.md#installation)):
+
+```bash
+./install.sh --core   # Managed layer only needs core hooks (no NLP plugins)
+```
+
 ## Installation
 
 ### Linux
@@ -45,6 +53,18 @@ sudo mkdir -p "/Library/Application Support/claude-code/hooks"
 sudo cp .claude/hooks/regex_filter.py "/Library/Application Support/claude-code/hooks/"
 sudo cp .claude/hooks/hook_utils.py "/Library/Application Support/claude-code/hooks/"
 sudo cp managed/managed_rules.json "/Library/Application Support/claude-code/hooks/"
+```
+
+### Windows
+
+```cmd
+REM Create the managed hooks directory
+mkdir "%ProgramData%\claude-code\hooks"
+
+REM Copy the hook engine and rules
+copy .claude\hooks\regex_filter.py "%ProgramData%\claude-code\hooks\"
+copy .claude\hooks\hook_utils.py "%ProgramData%\claude-code\hooks\"
+copy managed\managed_rules.json "%ProgramData%\claude-code\hooks\"
 ```
 
 ## How It Works

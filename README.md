@@ -57,16 +57,73 @@ All blocked events are written to an audit log for review and compliance.
 ### Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
-- Python 3.10+
+- Python 3.10+ (3.11+ recommended for best regex performance)
 
-### 1. Clone the repository
+### Quick Install (recommended)
+
+The installation scripts create a `claude_privacy_hook_env` virtual environment and install all dependencies:
 
 ```bash
 git clone https://github.com/pipopoplin/claude-privacy-hook.git
 cd claude-privacy-hook
+
+# Linux
+chmod +x install.sh
+./install.sh              # All NLP plugins (spaCy + Presidio + DistilBERT)
+./install.sh --core       # Core hooks only (no NLP plugins, zero dependencies)
+./install.sh --spacy      # Core + spaCy only (recommended, lightweight)
+
+# macOS
+chmod +x install_mac.sh
+./install_mac.sh          # Checks Xcode CLT + Homebrew Python, then installs
+
+# Windows
+install.bat               # All NLP plugins
+install.bat --core        # Core hooks only
 ```
 
-### 2. Copy hooks into your project
+Flags can be combined: `./install.sh --spacy --presidio`
+
+| Flag | What it installs | Download size |
+|------|-----------------|--------------|
+| `--core` | Core hooks only (stdlib) | None |
+| `--spacy` | spaCy + `en_core_web_sm` model | ~50 MB |
+| `--presidio` | Microsoft Presidio analyzer | ~30 MB |
+| `--distilbert` | Transformers + PyTorch | ~2.8 GB |
+| _(no flags)_ | All of the above | ~3 GB |
+
+The scripts automatically:
+1. Find Python 3.10+ on your system
+2. Create the `claude_privacy_hook_env` virtual environment
+3. Install selected NLP plugins
+4. Verify all components
+5. Run smoke tests on the hook pipeline
+
+After installation, activate the environment:
+
+```bash
+# Linux / macOS
+source claude_privacy_hook_env/bin/activate
+
+# Windows
+claude_privacy_hook_env\Scripts\activate.bat
+```
+
+### Manual Install
+
+If you prefer to manage your own environment:
+
+```bash
+git clone https://github.com/pipopoplin/claude-privacy-hook.git
+cd claude-privacy-hook
+
+python3 -m venv claude_privacy_hook_env
+source claude_privacy_hook_env/bin/activate  # Linux/macOS
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+```
+
+### Copy Hooks Into Your Project
 
 Copy the `.claude/` directory into any project where you want the hooks active:
 
@@ -76,30 +133,7 @@ cp -r .claude /path/to/your/project/
 
 Or use this repo directly as your project.
 
-### 3. Install an NLP plugin (optional, for PII detection)
-
-The regex filter and built-in plugins work with zero dependencies. For NLP-based PII detection, install one backend:
-
-```bash
-# spaCy — recommended, lightweight, ~3ms
-pip install spacy
-python -m spacy download en_core_web_sm
-
-# Microsoft Presidio — fastest, ~0.4ms, known PII types
-pip install presidio-analyzer
-
-# DistilBERT — best accuracy, ~25ms
-pip install transformers torch
-```
-
-Or install from the requirements file (spaCy by default):
-
-```bash
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-```
-
-### 4. Verify installation
+### Verify Installation
 
 ```bash
 python3 tests/run_all.py                # Run all 1312 tests across 7 suites
@@ -112,14 +146,14 @@ python3 tests/test_nlp_service.py       # NLP persistent service (42 cases)
 python3 tests/test_conftest.py          # Test infrastructure (160 cases)
 ```
 
-### 5. Run benchmarks (optional)
+### Run Benchmarks (optional)
 
 ```bash
 python3 benchmarks/run_all.py          # All benchmarks (~2 min)
 python3 benchmarks/run_all.py --fast   # Skip slow NLP subprocess benchmarks
 ```
 
-### 6. Restart Claude Code
+### Restart Claude Code
 
 Hooks are loaded at session startup. Restart Claude Code or run `/hooks` to review the active hooks.
 

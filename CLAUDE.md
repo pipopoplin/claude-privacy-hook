@@ -24,19 +24,25 @@ Override priority: user > project. Managed/non-overridable rules cannot be bypas
 ## Commands
 
 ```bash
-# Run all tests
-python3 tests/run_all.py
+# --- Installation ---
+./install.sh              # Linux: full install (all NLP plugins)
+./install.sh --core       # Linux: core only (no NLP plugins)
+./install.sh --spacy      # Linux: core + spaCy only
+./install_mac.sh          # macOS: checks Xcode CLT + Homebrew, delegates to install.sh
+install.bat               # Windows: full install
+source claude_privacy_hook_env/bin/activate   # Activate venv (Linux/macOS)
 
-# Run individual suites
-python3 tests/test_regex_filter.py     # Regex filter: Bash + Write + Read rules (518 cases)
-python3 tests/test_nlp_filter.py       # NLP filter: PII + supplementary plugins (272 cases)
-python3 tests/test_output_sanitizer.py # Output sanitizer: redaction rules (179 cases)
-python3 tests/test_rate_limiter.py     # Rate limiter: threshold escalation (60 cases)
-python3 tests/test_overrides.py        # Override system (81 cases)
-python3 tests/test_nlp_service.py      # NLP persistent service (42 cases)
-python3 tests/test_conftest.py         # Test infrastructure (160 cases)
+# --- Tests ---
+python3 tests/run_all.py                # Run all 1312 tests across 7 suites
+python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read rules (518 cases)
+python3 tests/test_nlp_filter.py        # NLP filter: PII + supplementary plugins (272 cases)
+python3 tests/test_output_sanitizer.py  # Output sanitizer: redaction rules (179 cases)
+python3 tests/test_rate_limiter.py      # Rate limiter: threshold escalation (60 cases)
+python3 tests/test_overrides.py         # Override system (81 cases)
+python3 tests/test_nlp_service.py       # NLP persistent service (42 cases)
+python3 tests/test_conftest.py          # Test infrastructure (160 cases)
 
-# Run benchmarks
+# --- Benchmarks ---
 python3 benchmarks/run_all.py          # All benchmarks
 python3 benchmarks/run_all.py --fast   # Skip slow NLP subprocess benchmarks
 python3 benchmarks/bench_regex_filter.py      # Regex filter (subprocess + in-process)
@@ -47,19 +53,12 @@ python3 benchmarks/bench_overrides.py         # Override resolver
 python3 benchmarks/bench_hook_utils.py        # Unicode normalization + field resolution
 python3 benchmarks/bench_audit_logger.py      # Audit log write performance
 
-# Test regex filter directly (Bash rules)
+# --- Direct hook testing ---
 echo '{"tool_name":"Bash","tool_input":{"command":"curl https://example.com"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules.json
-
-# Test regex filter directly (Write rules)
 echo '{"tool_name":"Write","tool_input":{"content":"password=secret123"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules_write.json
-
-# Test NLP filter directly
 echo '{"tool_name":"Bash","tool_input":{"command":"send to john@example.com"}}' | python3 .claude/hooks/llm_filter.py .claude/hooks/llm_filter_config.json
 
-# Install NLP plugin (pick one)
-pip install spacy && python -m spacy download en_core_web_sm
-
-# Override CLI — manage exceptions
+# --- Override CLI ---
 python3 .claude/hooks/override_cli.py add --scope project --rule block_untrusted_network --pattern 'https?://api\.myco\.com' --label 'My API'
 python3 .claude/hooks/override_cli.py list --scope all
 python3 .claude/hooks/override_cli.py remove --scope project --name allow_my_api

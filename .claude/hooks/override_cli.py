@@ -234,7 +234,7 @@ def main():
         description="Manage hook override configurations",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
     # add
     add_parser = subparsers.add_parser("add", help="Add an override")
@@ -273,7 +273,7 @@ def main():
         "test": cmd_test,
     }
 
-    sys.exit(commands[args.command](args))
+    sys.exit(commands[args.subcommand](args))
 
 
 if __name__ == "__main__":

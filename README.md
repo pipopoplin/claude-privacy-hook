@@ -102,13 +102,14 @@ python -m spacy download en_core_web_sm
 ### 4. Verify installation
 
 ```bash
-python3 tests/run_all.py                # Run all 604 tests across 6 suites
+python3 tests/run_all.py                # Run all 1312 tests across 7 suites
 python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read (518 cases)
-python3 tests/test_nlp_filter.py        # NLP filter: PII + plugins (39 cases)
-python3 tests/test_output_sanitizer.py  # Output sanitizer (19 cases)
-python3 tests/test_rate_limiter.py      # Rate limiter (9 cases)
-python3 tests/test_overrides.py         # Override system (9 cases)
-python3 tests/test_nlp_service.py       # NLP persistent service (10 cases)
+python3 tests/test_nlp_filter.py        # NLP filter: PII + plugins (272 cases)
+python3 tests/test_output_sanitizer.py  # Output sanitizer (179 cases)
+python3 tests/test_rate_limiter.py      # Rate limiter (60 cases)
+python3 tests/test_overrides.py         # Override system (81 cases)
+python3 tests/test_nlp_service.py       # NLP persistent service (42 cases)
+python3 tests/test_conftest.py          # Test infrastructure (160 cases)
 ```
 
 ### 5. Restart Claude Code
@@ -299,7 +300,7 @@ All 40 filters are implemented across the four security layers.
 
 [Business Source License 1.1](LICENSE)
 
-Free for non-production use (evaluation, testing, development, personal projects, academic research). Production use requires a commercial license — contact the Licensor.
+Free for non-production use (evaluation, testing, personal projects, academic research). Production use requires a commercial license — contact the Licensor.
 
 On the Change Date (4 years after each version's release), that version converts to [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 

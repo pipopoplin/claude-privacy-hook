@@ -36,6 +36,17 @@ python3 tests/test_overrides.py        # Override system (81 cases)
 python3 tests/test_nlp_service.py      # NLP persistent service (42 cases)
 python3 tests/test_conftest.py         # Test infrastructure (160 cases)
 
+# Run benchmarks
+python3 benchmarks/run_all.py          # All benchmarks
+python3 benchmarks/run_all.py --fast   # Skip slow NLP subprocess benchmarks
+python3 benchmarks/bench_regex_filter.py      # Regex filter (subprocess + in-process)
+python3 benchmarks/bench_nlp_filter.py        # NLP filter + plugins
+python3 benchmarks/bench_output_sanitizer.py  # Output sanitizer
+python3 benchmarks/bench_rate_limiter.py      # Rate limiter + log parsing
+python3 benchmarks/bench_overrides.py         # Override resolver
+python3 benchmarks/bench_hook_utils.py        # Unicode normalization + field resolution
+python3 benchmarks/bench_audit_logger.py      # Audit log write performance
+
 # Test regex filter directly (Bash rules)
 echo '{"tool_name":"Bash","tool_input":{"command":"curl https://example.com"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules.json
 

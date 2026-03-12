@@ -112,7 +112,14 @@ python3 tests/test_nlp_service.py       # NLP persistent service (42 cases)
 python3 tests/test_conftest.py          # Test infrastructure (160 cases)
 ```
 
-### 5. Restart Claude Code
+### 5. Run benchmarks (optional)
+
+```bash
+python3 benchmarks/run_all.py          # All benchmarks (~2 min)
+python3 benchmarks/run_all.py --fast   # Skip slow NLP subprocess benchmarks
+```
+
+### 6. Restart Claude Code
 
 Hooks are loaded at session startup. Restart Claude Code or run `/hooks` to review the active hooks.
 
@@ -286,6 +293,39 @@ All 40 filters are implemented across the four security layers.
 | **OWASP LLM01** | OWASP Top 10 for LLMs — prompt injection |
 | **OWASP A05** | OWASP Top 10 — security misconfiguration (path traversal) |
 
+## Performance
+
+Every hook is benchmarked at two levels: **subprocess** (real-world latency including Python startup) and **in-process** (pure function cost).
+
+### Full pipeline — Bash command (heaviest path)
+
+| Stage | Subprocess (p50) | In-process | Notes |
+|-------|----------------:|----------:|-------|
+| Regex filter | 24ms | 0.07ms | 16 rules, ~160 patterns |
+| NLP filter (service) | 31ms | 1.4ms | Persistent service + spaCy |
+| Rate limiter | 20ms | 0.06ms | ~50 audit log entries |
+| Output sanitizer | 20ms | 0.02ms | 7 redaction rules |
+| **Total** | **~95ms** | **~1.6ms** | Subprocess dominated by Python startup |
+
+Write/Edit and Read paths only run the regex filter (~20ms subprocess, <0.01ms in-process).
+
+### Component highlights
+
+| Component | In-process speed | Notes |
+|-----------|----------------:|-------|
+| `normalize_unicode()` | 1.2M ops/s | Plain ASCII; 5K ops/s for 6KB text |
+| `resolve_field()` | 6.9M ops/s | Dot-path field resolution |
+| `evaluate_rules()` | 14K–155K ops/s | Varies by rule set (Bash slowest, Read fastest) |
+| `redact_text()` | 52K ops/s | Typical output; 280/s for 500-line output |
+| `check_override()` | 67K ops/s | 50 overrides, no match |
+| `log_event()` | 128K ops/s | JSONL append |
+| Supplementary plugins | 100K–4.6M ops/s | Pure Python, no external deps |
+| spaCy plugin | 560 ops/s | NER model inference |
+
+The ~17ms subprocess overhead per hook is Python interpreter startup. The persistent NLP service (`llm_client.py`) reduces cold NLP invocations from ~730ms to ~31ms by keeping spaCy loaded.
+
+See the full [Benchmark guide](benchmarks/README.md) for methodology, all scenarios, and how to run.
+
 ## Documentation
 
 | Document | Audience | Description |
@@ -294,6 +334,7 @@ All 40 filters are implemented across the four security layers.
 | [Configuration](docs/configuration.md) | Developers | Rule format, all configuration options, tuning guide |
 | [Plugins](docs/plugins.md) | Plugin developers | Plugin API, writing and registering custom plugins |
 | [Testing](docs/testing.md) | Contributors | Test suites, running tests, adding test cases |
+| [Benchmarks](benchmarks/README.md) | Contributors, performance | Latency and throughput for every hook component |
 | [Diagrams](docs/sequence-diagram.md) | All | Visual pipeline sequence and decision flow diagrams |
 
 ## License

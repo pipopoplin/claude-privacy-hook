@@ -1,0 +1,159 @@
+# Architecture
+
+## Hook Pipeline
+
+Hooks fire at different stages depending on the tool. All hooks log blocked/redacted events to `audit.log` via the audit logger.
+
+```
+Bash command → regex_filter.py (filter_rules.json, 16 rules, <1ms)
+             → llm_filter.py (PII + 4 supplementary plugins, 3-25ms)
+             → rate_limiter.py (violation escalation, <1ms)
+             → execute or block
+                  ↓
+             output_sanitizer.py (PostToolUse, 7 redaction rules) → redact stdout/stderr
+
+Write/Edit   → regex_filter.py (filter_rules_write.json, 8 rules) → execute or block
+Read         → regex_filter.py (filter_rules_read.json, 1 rule)   → execute or block
+```
+
+## Regex Filter (Layer 1)
+
+Fast, deterministic regex engine with Unicode normalization (NFKC), homoglyph detection (Cyrillic/Greek), and zero-width character stripping. Reads any JSON rule config, evaluates rules top-to-bottom — first match wins.
+
+All deny rules are placed before the allow rule to ensure sensitive data is blocked even when sent to trusted endpoints.
+
+**File:** `.claude/hooks/regex_filter.py`
+
+### Bash Rules (`filter_rules.json` — 16 rules, ~160 patterns)
+
+| Rule | Action | What it catches |
+|------|--------|----------------|
+| `block_sensitive_data` | DENY | API keys (`sk-ant-*`, `sk-*`), AWS creds, GitHub/GitLab tokens, Stripe, Google, SendGrid, Twilio, JWT, npm, PyPI, Hugging Face, DigitalOcean, Vault tokens, private keys, hardcoded passwords |
+| `block_employee_hr_ids` | DENY | Employee IDs (`EMP-12345`), HR numbers, staff IDs, payroll IDs |
+| `block_iban_bank_accounts` | DENY | IBAN numbers, routing numbers, SWIFT/BIC codes, sort codes, bank account numbers |
+| `block_passport_licence` | DENY | Passport numbers, driver licence numbers, national IDs |
+| `block_base64_payloads` | DENY | `base64` CLI, `b64encode()`, `atob()`/`btoa()`, long base64 strings (80+ chars) |
+| `block_prompt_injection` | DENY | "ignore previous instructions", role reassignment, jailbreak phrases, XML tag injection |
+| `block_shell_obfuscation` | DENY | `eval`, hex/octal escapes, `/dev/tcp`, `/dev/udp`, `IFS=`, `source <(...)`, exec fd redirection |
+| `block_path_traversal` | DENY | 3+ levels `../`, 2+ levels to sensitive files, URL-encoded `%2e%2e`, double-encoded variants |
+| `block_sensitive_file_access` | DENY | `/etc/shadow`, `.ssh/id_*`, `.env`, `.aws/credentials`, `.kube/config`, shell history files |
+| `block_database_connection_strings` | DENY | `postgres://user:pass@host`, `DATABASE_URL=`, JDBC, ADO.NET, ODBC connection strings |
+| `block_dns_exfiltration` | DENY | `dig`/`nslookup`/`host` with `$()`, backticks, pipes, TXT queries, `+short` |
+| `block_pipe_chain_exfiltration` | DENY | Multi-stage pipes to network tools, file-read-to-curl, reverse shells, `mkfifo`, `mail`/`sendmail` |
+| `block_internal_network_addresses` | DENY | RFC1918 (10.x, 172.16-31.x, 192.168.x), link-local, cloud metadata endpoints, .internal/.corp/.lan suffixes |
+| `block_customer_contract_ids` | DENY | Customer IDs (`CUST-*`), invoices (`INV-*`), orders (`ORD-*`), contracts, accounts, POs, tenant/subscription IDs |
+| `allow_trusted_endpoints` | ALLOW | localhost, package registries (PyPI, npm, crates.io), VCS hosts (GitHub, GitLab, Bitbucket) |
+| `block_untrusted_network` | DENY | curl, wget, ssh, Python requests/httpx, JS fetch/axios, Anthropic/OpenAI SDK calls, netcat, etc. |
+
+### Write/Edit Rules (`filter_rules_write.json`)
+
+Blocks sensitive data in file content: API keys, credentials, PII patterns, private keys, passwords, DB connection strings, SSNs, credit cards, internal IPs.
+
+### Read Rules (`filter_rules_read.json`)
+
+Blocks access to sensitive file paths: `/etc/passwd`, `.ssh`, `.env`, `.aws`, `.kube`, shell history, etc.
+
+## NLP Filter (Layer 2)
+
+Detects PII that regex can't catch — real names, email addresses, phone numbers, SSNs, credit card numbers embedded in commands.
+
+**File:** `.claude/hooks/llm_filter.py`
+
+Uses a two-tier plugin dispatch:
+
+### PII Plugins (first available wins)
+
+| Plugin | Tier | Latency | Best for |
+|--------|------|---------|----------|
+| presidio | SubMillisecond | ~0.4ms | Production, known PII types |
+| spacy | EdgeDevice | ~3ms | Low resource, good default |
+| distilbert | HighAccuracy | ~25ms | Maximum detection accuracy |
+
+### Supplementary Plugins (always run independently)
+
+| Plugin | Tier | Latency | Best for |
+|--------|------|---------|----------|
+| prompt_injection | EdgeDevice | ~1ms | Jailbreak / injection detection (no external deps) |
+| sensitive_categories | EdgeDevice | ~1ms | Medical, biometric, and GDPR Art.9 protected categories (no external deps) |
+| entropy_detector | EdgeDevice | ~1ms | High-entropy secret detection for unknown token formats (no external deps) |
+| semantic_intent | EdgeDevice | ~1ms | Verb+target heuristic classification for suspicious command intent (no external deps) |
+
+The supplementary plugin architecture ensures all these detectors fire on every command, even if no PII plugin is installed.
+
+## Output Sanitizer (PostToolUse)
+
+Runs after command execution and redacts sensitive data from stdout/stderr using 7 pattern rules: API keys, SSNs, credit cards, emails, private keys, DB connection strings, internal IPs.
+
+**File:** `.claude/hooks/output_sanitizer.py`
+
+## Rate Limiter
+
+Counts deny/ask violations in a rolling 5-minute window per session. Escalates: warn at 5 violations, block at 10.
+
+**File:** `.claude/hooks/rate_limiter.py`
+
+## Audit Logger
+
+JSONL audit log writer. All hooks call `audit_logger.log_event()` on block/redact. Logs: timestamp, filter name, rule, action, matched patterns, command hash (SHA256), redacted command preview, session ID.
+
+Override log path via `HOOK_AUDIT_LOG` env var.
+
+**File:** `.claude/hooks/audit_logger.py`
+
+## Diagrams
+
+### Decision Flow
+
+![Decision flow](decision-flow.svg)
+
+### Sequence Diagram
+
+![Sequence diagram](sequence-diagram.svg)
+
+See also: [Mermaid source diagrams](sequence-diagram.md)
+
+## Project Structure
+
+```
+.claude/
+  settings.json                       # Hook registration (PreToolUse + PostToolUse, multi-tool matchers)
+  hooks/
+    regex_filter.py                   # Layer 1: regex rule engine + Unicode normalization
+    filter_rules.json                 # Bash regex rules (16 rules, ~160 patterns)
+    filter_rules_write.json           # Write/Edit tool rules (sensitive data in file content)
+    filter_rules_read.json            # Read tool rules (sensitive file path access)
+    llm_filter.py                     # Layer 2: NLP plugin dispatcher (PII + supplementary)
+    llm_filter_config.json            # NLP plugin config (priority, thresholds, supplementary)
+    output_sanitizer.py               # PostToolUse: redacts sensitive data from command output
+    output_sanitizer_rules.json       # Output sanitizer rules (API keys, SSNs, cards, etc.)
+    rate_limiter.py                   # PreToolUse: escalates on repeated session violations
+    rate_limiter_config.json          # Rate limiter config (thresholds, window, cooldown)
+    audit_logger.py                   # JSONL audit logger for blocked events
+    plugins/
+      plugins.json                    # Plugin registry (7 plugins)
+      base.py                         # SensitiveContentPlugin ABC + DetectionResult
+      presidio_plugin.py              # Microsoft Presidio backend
+      spacy_plugin.py                 # spaCy + regex backend
+      distilbert_plugin.py            # DistilBERT NER backend
+      prompt_injection_plugin.py      # Prompt injection / jailbreak detection (no deps)
+      sensitive_categories_plugin.py  # Medical, biometric, protected category detection (no deps)
+      entropy_detector_plugin.py      # High-entropy secret detection (no deps)
+      semantic_intent_plugin.py       # Verb+target suspicious intent scoring (no deps)
+    audit.log                         # JSONL audit log (generated at runtime)
+docs/
+  architecture.md                     # This file
+  configuration.md                    # Configuration and customization guide
+  plugins.md                          # Plugin system and custom plugin development
+  testing.md                          # Test suite documentation
+  sequence-diagram.md                 # Mermaid diagrams rendered in Markdown
+  sequence-diagram.mmd                # Full pipeline sequence diagram (Mermaid source)
+  sequence-diagram.svg                # Full pipeline sequence diagram (rendered)
+  decision-flow.mmd                   # Decision flowchart (Mermaid source)
+  decision-flow.svg                   # Decision flowchart (rendered)
+main.py                               # Entry point (placeholder)
+test_hook.py                          # Regex filter tests (126 cases)
+test_llm_hook.py                      # NLP filter tests (39+ cases)
+requirements.txt                      # Python dependencies (spaCy default)
+CLAUDE.md                             # Claude Code project guidance
+LICENSE                               # Business Source License 1.1
+```

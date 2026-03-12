@@ -1,11 +1,11 @@
 # Tests
 
-Test suites for all four security hook layers plus the override system and persistent NLP service.
+Test suites for all four security hook layers plus the override system, persistent NLP service, and shared test infrastructure.
 
 ## Quick Start
 
 ```bash
-# Run everything (604 tests)
+# Run everything (1312 tests)
 python3 tests/run_all.py
 
 # Skip slow service tests
@@ -17,11 +17,12 @@ python3 tests/run_all.py --fast
 | Suite | File | Cases | What it tests |
 |-------|------|-------|---------------|
 | **Regex Filter** | `test_regex_filter.py` | 518 | Pattern matching for Bash, Write/Edit, and Read rules |
-| **NLP Filter** | `test_nlp_filter.py` | 39 | PII detection plugins + supplementary plugins |
-| **Output Sanitizer** | `test_output_sanitizer.py` | 19 | Post-execution redaction of sensitive data in stdout/stderr |
-| **Rate Limiter** | `test_rate_limiter.py` | 9 | Session-based violation threshold escalation |
-| **Overrides** | `test_overrides.py` | 9 | Three-layer override resolver, CLI tool, audit logging |
-| **NLP Service** | `test_nlp_service.py` | 10 | Persistent TCP service lifecycle, client auto-start, performance |
+| **NLP Filter** | `test_nlp_filter.py` | 272 | PII detection, prompt injection, sensitive categories, entropy, semantic intent, config edge cases |
+| **Output Sanitizer** | `test_output_sanitizer.py` | 179 | API keys (20 patterns), SSNs, credit cards, emails, private keys, DB connections, internal IPs, stderr, config/input edge cases, audit logging, Unicode |
+| **Rate Limiter** | `test_rate_limiter.py` | 60 | Threshold boundaries, action filtering, session isolation, time window, config variants, malformed input, output format |
+| **Overrides** | `test_overrides.py` | 81 | Resolver unit tests, NLP override merging, integration allows, non-overridable rules, edge cases, audit logging, CLI tool, performance |
+| **NLP Service** | `test_nlp_service.py` | 42 | Persistent TCP service lifecycle, protocol edge cases, concurrency, client behavior, config variants, performance |
+| **Conftest Infrastructure** | `test_conftest.py` | 160 | Path constants, parse_decision, detected, run_hook_raw, run_hook, TestRunner, integration round-trips, edge cases |
 
 ## Shared Infrastructure
 
@@ -58,64 +59,91 @@ Tests the regex filter (`regex_filter.py`) against all three rule sets with exte
 
 Tests the NLP filter (`llm_filter.py`) plugin system:
 
-- **Config edge cases** — disabled config, no plugins available
-- **PII detection** (requires spaCy/Presidio/DistilBERT) — emails, phone numbers, SSNs, credit cards, safe commands
-- **Prompt injection plugin** — instruction override, role reassignment, XML injection, safety override
-- **Sensitive categories plugin** — medical data (patient IDs, MRNs, ICD-10), biometric data, protected categories (ethnicity, religion)
-- **Entropy detector plugin** — high-entropy secrets, no false positives on normal text
-- **Semantic intent plugin** — exfiltration intent, credential theft, no false positives on normal uploads
+- **Config edge cases** (12) — disabled config, no plugins, high confidence threshold, action=ask, selective entity types, empty entity types, empty command, missing tool_input, custom field path, disabled individual plugin, malformed JSON stdin, multiple detections
+- **PII detection** (23, requires spaCy/Presidio/DistilBERT) — emails (standard, subdomain, minimal TLD), phone numbers (dashes, dots, country code), SSNs (dashes, dots, spaces), credit cards (spaces, dashes, boundary 13-16 digits), IP addresses, multiple PII, 8 safe commands
+- **Prompt injection plugin** (62) — all 17 patterns: role manipulation (you are now, act as, pretend, role: system, system: you are), instruction override (ignore/disregard/forget/override/bypass + new instructions:), jailbreak (jailbreak, DAN mode/prompt, do anything now, sudo/admin mode, no restrictions/limitations/rules/guardrails), structural injection (XML system/prompt/instruction/context tags with spaces, [INST], markdown ### roles), exfiltration (reveal/show/print/display/output prompt/instructions/rules, what are your), case variations, 13 false positives
+- **Sensitive categories plugin** (107) — medical assignment (21: patient_id, MRN, diagnosis, ICD-10 formats, medical_record, prescription_id/number/rx, NPI, health_insurance_id, patient+PII fields), medical context (9: patient+record, diagnosis+name, medication/allergy/condition/disability+person), 5 medical FPs, biometric (37: all 7 pattern groups — biometric_data/id/template/hash/scan/token, fingerprint/retina/iris variants, face_id/encoding/embedding/recognition/template, genetic_data/sequence/marker/profile/test, voice_print/sample/pattern/biometric, palm_print/scan/vein, dna_sample/sequence/profile/result/test, separators), 6 biometric FPs, protected categories (22: race/ethnicity/ethnic_group, religion/religious_affiliation/faith/denomination, political_party/affiliation/view, sexual_orientation/gender_identity, union_membership/trade_union, disability/disabled/handicap, context patterns), 6 protected FPs
+- **Entropy detector plugin** (20) — high-entropy tokens with context keywords (key/token/password/bearer/auth/private/signing/encryption/credential), boundary 16-char below threshold, 15-char below min_length, 32-char with context, pure hex hash FPs (MD5/SHA1/SHA256), 64-char token, 7 false positives
+- **Semantic intent plugin** (39) — dangerous verbs (exfiltrate/steal/extract/dump/harvest/scrape/siphon/smuggle/leak) + all targets, network verbs (upload/send/post/transmit/transfer/forward/relay), case insensitivity, distance boundary, 13 false positives
 
 PII tests are skipped if no PII plugin is installed. Supplementary plugin tests always run (pure Python, no external deps).
 
 ### test_output_sanitizer.py
 
-Tests the PostToolUse output sanitizer (`output_sanitizer.py`):
+Tests the PostToolUse output sanitizer (`output_sanitizer.py`) with edge-value coverage for all 7 rules:
 
-- **Redaction cases** — API keys (Anthropic, GitHub, Stripe, AWS, JWT), SSNs, credit cards (Visa, Mastercard), email addresses, private keys, DB connection strings, internal IPs, stderr redaction
-- **Pass-through cases** — normal text, JSON, build logs, git output, empty output
+- **API key redaction** (31) — Anthropic (standard, mid-output), OpenAI (sk-proj-, sk- 20-char), GitHub (PAT, OAuth), Slack (xoxb/xoxa/xoxp), Stripe (live/test/restricted rk_live/rk_test), Google (API AIza 35-char, OAuth ya29.), SendGrid, Twilio (SK/AC 32-hex), JWT (standard, Bearer header), GitLab PAT, npm, PyPI (60+ chars), Hugging Face, DigitalOcean, AWS (access key assignment, secret key, AKIA standalone), boundary-length edge (20 chars exact, 19 below min), two keys in one line
+- **SSN redaction** (10) — standard NNN-NN-NNNN, assignment (= and :), with spaces, mid-text, quoted, boundary zeros, all nines, FP date format, FP version string
+- **Credit card redaction** (19) — Visa (spaces/dashes/none, 4000 prefix, boundary 4999), Mastercard (5100/5200/5300/5400/5500, spaces/dashes/none), Amex (34xx/37xx, spaces/dashes/none), Discover (6011/65xx, none), FP non-matching prefix, FP 15-digit
+- **Email redaction** (12) — standard, subdomain, dots/plus/percent/hyphen/underscore in local, numbers, short TLD, two emails, FP shell `${array[@]}`, FP git ref `HEAD@{1}`
+- **Private key redaction** (11) — RSA/EC/DSA/OPENSSH/generic headers, RSA/EC/generic footers, full block, FP public key, FP certificate
+- **DB connection string redaction** (25) — URI with credentials (postgres/postgresql/mysql/mariadb/mongodb/mongodb+srv/redis/amqp/rabbitmq/cockroachdb/couchdb/mssql), env var assignments (DATABASE_URL/MONGO_URI/MONGODB_URI/REDIS_URL/AMQP_URL), ADO.NET, ODBC, JDBC (mysql/postgresql/sqlserver/oracle), Data Source, FP plain URL, FP db name
+- **Internal IP redaction** (23) — RFC1918 Class A (10.0.0.1, :8080, max 255, mid-range), Class B (172.16 lower, 172.31 upper, 172.20 mid), Class C (192.168.0/1/255), link-local (169.254.0.1, AWS metadata), IPv6 ULA (fd00/fdab), IPv6 link-local (fe80::), two IPs in one line, FP public (8.8.8.8, 1.1.1.1), FP out-of-range (172.32, 172.15, 11.x), FP localhost
+- **Stderr redaction** (7) — API key, SSN, email, internal IP, DB URI, private key in stderr; both stdout+stderr simultaneously
+- **Pass-through** (17) — normal text, JSON, build log, git log, empty, npm output, test results, file listing, public IP, version numbers, hex colors, MAC address, URL without credentials, SQL without secrets, Docker digest, safe stderr, large output (500 lines)
+- **Redaction quality** (3) — [REDACTED] marker present, surrounding text preserved, multiple rules all redact in single output
+- **Config edge cases** (10) — disabled rule, action=allow, match=all (partial/full), empty rules, invalid regex skipped, string patterns, missing rules key, no patterns key
+- **Input edge cases** (6) — missing tool_result, non-dict tool_result, empty stdout+stderr, malformed JSON, no config arg, nonexistent config
+- **Audit logging** (2) — redaction event recorded, no log for safe output
+- **Unicode / case insensitivity** (3) — case-insensitive matching (upper/lower), Unicode homoglyph normalization
 
 ### test_rate_limiter.py
 
 Tests the rate limiter (`rate_limiter.py`):
 
-- Under threshold → allow
-- 5 violations → warn (ask)
-- 10 violations → block (deny)
-- Session isolation — other sessions' violations don't count
-- Expired violations — old entries outside the 5-minute window
-- Non-violation actions (allow, redact, override_allow) don't count
-- Missing session ID → allow
-- Disabled config → allow
-- Missing audit log file → allow
+- **Threshold boundaries** (9): 0, 1, 4 (below warn), 5 (at warn), 6, 9 (below block), 10 (at block), 11, 50 violations
+- **Action filtering** (7): deny counts, ask counts, mixed deny+ask, allow/redact/override_allow don't count, mixed actions
+- **Session isolation** (4): other session ignored, multi-session split, current at threshold, empty session_id in log
+- **Time window** (6): all expired, mix expired+fresh, fresh at threshold, 4min (inside), 6min (outside), boundary straddling
+- **Config edge cases** (10): disabled, custom lower thresholds (warn=2/block=4), higher thresholds (warn=20/block=50), short window (60s), long window (3600s), warn=block, warn=1/block=2
+- **Input edge cases** (6): no session_id, empty session_id, missing log, empty log, malformed JSON stdin, missing tool_input
+- **Malformed log entries** (6): bad JSON lines, missing timestamp, bad timestamp, missing action, missing session_id, unknown actions
+- **Multiple sources** (2): different filters, different rules
+- **Output format** (5): warn format, block format, custom messages (warn+block), violation count in reason
+- **Large audit log** (1): 1000 entries performance
 
 ### test_overrides.py
 
 Tests the three-layer override system:
 
-- Override resolver unit tests (match, non-overridable, expired, no match)
-- Override allows previously-blocked (`ask`) command
-- Override does NOT apply to non-overridable (`deny`) rules
-- Expired overrides are ignored
-- Wrong rule_name overrides are ignored
-- Missing config_overrides.json = unchanged behavior
-- Audit log records `override_allow` events
-- CLI add/list/remove functional test
-- Performance: 50 overrides complete under 500ms
+- **Resolver unit tests** (28) — basic match, non-overridable rule, expired/future/today expiry, wrong rule_name, case insensitive, full regex, multiple patterns (any match), first-wins ordering, source preservation (user/project), empty overrides/rule, missing overridable defaults True, invalid regex skipped, string patterns, empty pattern, no patterns key, metadata entries skipped
+- **NLP override merging** (7) — empty overrides, disabled entity types, confidence overrides per type, user-wins-over-project precedence, deduplication
+- **Integration allows** (6) — override for each overridable rule: untrusted network, internal IP, employee ID, DB connection, customer ID, IBAN
+- **Non-overridable rules** (5) — block_sensitive_data, block_prompt_injection, block_shell_obfuscation, block_path_traversal, block_dns_exfiltration stay blocked with override
+- **Edge cases** (12) — expired/future expiry, wrong rule_name, missing/empty/malformed override file, multiple overrides (network+IP), partial pattern match, selective URL matching
+- **Audit logging** (4) — override_allow recorded with override_name and override_source, non-overridden commands have no override_allow
+- **CLI tool** (17) — add/list/remove cycle, add with --expires, duplicate name auto-increment, remove nonexistent, validate (valid/invalid-rule/non-overridable/invalid-regex/expired-warning), test (overridden/not-overridden/non-overridable)
+- **Performance** (2) — 50 overrides match and no-match complete under 500ms
 
 ### test_nlp_service.py
 
 Tests the persistent NLP detection service (`llm_service.py` + `llm_client.py`):
 
-- Service starts and writes lock file
-- Service allows safe commands
-- Service detects prompt injection
-- Service detects PII
-- Multiple requests reuse the same service process
-- Performance: warm requests average under 100ms
-- Client auto-starts service when not running
-- Client detects through the service
-- Graceful shutdown on SIGTERM
-- Disabled config returns no output
+- **Lifecycle** (6): startup, lock file validation, per-config isolation, lock cleanup, graceful/SIGINT shutdown
+- **Safe commands** (2): single and batch safe command pass-through
+- **Detection** (8): prompt injection, PII, sensitive categories, high-entropy secrets, semantic intent, 14 injection variants, 9 false-positive checks, mixed allow/detect interleaving
+- **Protocol edge cases** (8): empty command, missing fields, malformed JSON, oversized prefix, client disconnect, partial header, zero-length payload
+- **Concurrency** (3): request reuse, 20 rapid sequential, 5 concurrent threads
+- **Client behavior** (7): auto-start, detection, safe allow, empty/malformed stdin, stale lock restart, service reuse
+- **Config variants** (6): disabled config, high confidence threshold, no supplementary plugins, action=ask, selective entity types, config hot-reload
+- **Performance** (2): safe command latency, detection latency
+
+### test_conftest.py
+
+Tests the shared test infrastructure (`conftest.py`):
+
+- **Path constants** (42) — PROJECT_ROOT/HOOKS_DIR exist, 6 hook scripts exist and are .py under HOOKS_DIR, 7 config files exist and are valid JSON
+- **parse_decision()** (21) — deny→block, ask→warn, allow→allow, exit code 2→block, exit 0 empty→allow, exit 1/127/255→allow (fail-open), invalid/partial JSON→allow, missing/empty hookSpecificOutput→allow, unknown decisions→allow, non-dict hookSpecificOutput→AttributeError
+- **detected()** (12) — deny/ask→True, allow/empty/whitespace/error-code/invalid-JSON/missing-decision/unknown-values→False
+- **run_hook_raw()** (9) — safe command exit 0, sensitive command→block, returns CompletedProcess with stdout/stderr/returncode, custom env passthrough, empty hook_input graceful
+- **run_hook()** (14) — Bash safe→allow, API key→block, default tool_name, Read /etc/shadow→block, Read safe→allow, Write password→block, Write safe→allow, None/empty command→allow, tool_input overrides command, return type always str in valid set
+- **TestRunner init** (5) — title stored, counters start at 0, empty/long titles
+- **TestRunner check()** (18) — pass/fail counting, return values, multiple passes/fails, type comparisons (int vs str, None, list, dict, empty list, bool vs int)
+- **TestRunner run_fn()** (11) — True/False/exception/None/0/string/"" returns, pass/fail counting
+- **TestRunner summary()** (5) — all pass→0, has fails→1, zero tests→0, all fail→1, 100+1→1
+- **TestRunner header/section()** (4) — no-crash, empty name, special characters
+- **Integration round-trip** (9) — safe/blocked/warned through raw→parse→detected, run_hook agrees
+- **Edge cases** (10) — long command (6KB), newlines, unicode, null bytes, whitespace, JSON chars, extra fields, trailing newline, leading whitespace, double JSON
 
 ## Adding Test Cases
 

@@ -19,6 +19,7 @@ SUITES = [
     ("Rate Limiter", "test_rate_limiter.py"),
     ("Overrides", "test_overrides.py"),
     ("NLP Service", "test_nlp_service.py"),
+    ("Conftest Infrastructure", "test_conftest.py"),
 ]
 
 

@@ -159,14 +159,16 @@ def run_detection(
     action = config.get("action", "deny")
     entity_types = list(config.get("entity_types") or [])
 
-    # Load overrides (fresh on each request — tiny files)
+    # Load overrides (pro feature — skipped when pro is not available)
     nlp_ovr: dict = {}
     overrides: list = []
     try:
-        from override_resolver import load_overrides, merge_nlp_overrides
-        overrides = load_overrides(hooks_dir)
-        nlp_ovr = merge_nlp_overrides(overrides)
-    except Exception:
+        from tier_check import is_pro_available
+        if is_pro_available():
+            from override_resolver import load_overrides, merge_nlp_overrides
+            overrides = load_overrides(hooks_dir)
+            nlp_ovr = merge_nlp_overrides(overrides)
+    except ImportError:
         pass
 
     # Apply NLP overrides: filter disabled entity types
@@ -220,9 +222,12 @@ def run_detection(
             if reporting_plugin is None:
                 reporting_plugin = plugin
 
-    # Check pattern overrides
+    # Check pattern overrides (pro feature)
     if overrides and all_findings:
         try:
+            from tier_check import is_pro_available
+            if not is_pro_available():
+                raise ImportError("pro not available")
             from override_resolver import check_override
             dummy_rule = {"name": "llm_filter", "overridable": True}
             filtered = []
@@ -399,6 +404,13 @@ class DetectionServer(socketserver.ThreadingTCPServer):
         self._idle_timer: threading.Timer | None = None
         self._start_idle_timer()
 
+        # License heartbeat (pro feature — no-op when pro unavailable)
+        self._running = True
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop, daemon=True
+        )
+        self._heartbeat_thread.start()
+
         # Write lock file
         write_lock(self.lock_path, os.getpid(), self._port)
 
@@ -439,6 +451,32 @@ class DetectionServer(socketserver.ThreadingTCPServer):
     def reset_idle_timer(self) -> None:
         self._start_idle_timer()
 
+    def _heartbeat_loop(self) -> None:
+        """Periodically renew license token (pro feature).
+
+        Runs every 10 minutes. No-op when pro is not available.
+        """
+        while self._running:
+            try:
+                from tier_check import is_pro_available
+
+                if is_pro_available():
+                    try:
+                        from license.heartbeat import renew_token
+
+                        renew_token()
+                    except ImportError:
+                        pass  # No license module — transition mode
+                    except Exception:
+                        pass
+            except ImportError:
+                pass
+            # Sleep in small increments so shutdown is responsive
+            for _ in range(120):  # 120 * 5s = 600s = 10 min
+                if not self._running:
+                    break
+                time.sleep(5)
+
     def _idle_shutdown(self) -> None:
         print("LLM service shutting down (idle timeout)", file=sys.stderr)
         remove_lock(self.lock_path)
@@ -446,6 +484,7 @@ class DetectionServer(socketserver.ThreadingTCPServer):
         threading.Thread(target=self.shutdown, daemon=True).start()
 
     def server_close(self):
+        self._running = False
         super().server_close()
         remove_lock(self.lock_path)
         with self._idle_lock:

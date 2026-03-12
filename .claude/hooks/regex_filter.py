@@ -80,13 +80,16 @@ def evaluate_rules(
         if action == "allow":
             return {"decision": "allow"}
 
-        # Check overrides before returning deny/ask
+        # Check overrides before returning deny/ask (pro feature)
         if overrides:
-            from override_resolver import check_override
+            try:
+                from override_resolver import check_override
 
-            override = check_override(overrides, rule, value)
-            if override:
-                return {"decision": "allow", "override": override}
+                override = check_override(overrides, rule, value)
+                if override:
+                    return {"decision": "allow", "override": override}
+            except ImportError:
+                pass
 
         reason = rule.get("message", "Blocked by regex filter rule.")
         if matches:
@@ -127,13 +130,17 @@ def main():
     except json.JSONDecodeError:
         sys.exit(0)
 
-    # Load overrides (user + project)
+    # Load overrides (pro feature — skipped when pro is not available)
+    overrides = None
     try:
-        from override_resolver import load_overrides
+        from tier_check import is_pro_available
 
-        overrides = load_overrides(hooks_dir)
-    except Exception:
-        overrides = None
+        if is_pro_available():
+            from override_resolver import load_overrides
+
+            overrides = load_overrides(hooks_dir)
+    except ImportError:
+        pass
 
     result = evaluate_rules(config["rules"], hook_input, overrides=overrides)
 

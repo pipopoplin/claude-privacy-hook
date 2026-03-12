@@ -5,6 +5,14 @@
 # Private project management
 runway/
 
+# Pro modules (installed by pro installer, not tracked in free repo after split)
+.claude/hooks/override_resolver*
+.claude/hooks/override_cli*
+.claude/hooks/audit_logger_pro*
+.claude/hooks/config_overrides.json
+.claude/hooks/pro_manifest.json
+.claude/hooks/license/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

@@ -25,7 +25,15 @@ Override priority: user > project. Managed/non-overridable rules cannot be bypas
 
 ```bash
 # Run all tests
-python3 tests/test_hook.py && python3 tests/test_llm_hook.py && python3 tests/test_overrides.py && python3 tests/test_llm_service.py
+python3 tests/run_all.py
+
+# Run individual suites
+python3 tests/test_regex_filter.py     # Regex filter: Bash + Write + Read rules (162 cases)
+python3 tests/test_nlp_filter.py       # NLP filter: PII + supplementary plugins (39 cases)
+python3 tests/test_output_sanitizer.py # Output sanitizer: redaction rules (19 cases)
+python3 tests/test_rate_limiter.py     # Rate limiter: threshold escalation (9 cases)
+python3 tests/test_overrides.py        # Override system (9 cases)
+python3 tests/test_nlp_service.py      # NLP persistent service (10 cases)
 
 # Test regex filter directly (Bash rules)
 echo '{"tool_name":"Bash","tool_input":{"command":"curl https://example.com"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules.json

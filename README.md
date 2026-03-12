@@ -102,10 +102,13 @@ python -m spacy download en_core_web_sm
 ### 4. Verify installation
 
 ```bash
-python3 tests/test_hook.py        # Regex filter tests (126 cases, always works)
-python3 tests/test_llm_hook.py    # NLP filter tests (39 cases, supplementary plugins always work, PII needs a plugin)
-python3 tests/test_overrides.py   # Override system tests (9 cases)
-python3 tests/test_llm_service.py # NLP persistent service tests (10 cases)
+python3 tests/run_all.py                # Run all 248 tests across 6 suites
+python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read (162 cases)
+python3 tests/test_nlp_filter.py        # NLP filter: PII + plugins (39 cases)
+python3 tests/test_output_sanitizer.py  # Output sanitizer (19 cases)
+python3 tests/test_rate_limiter.py      # Rate limiter (9 cases)
+python3 tests/test_overrides.py         # Override system (9 cases)
+python3 tests/test_nlp_service.py       # NLP persistent service (10 cases)
 ```
 
 ### 5. Restart Claude Code

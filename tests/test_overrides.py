@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Test the three-layer override system."""
+"""Test the three-layer override system.
+
+Covers the override resolver module, regex filter integration,
+audit logging of overrides, the override CLI tool, and performance.
+"""
 
 import json
 import os
@@ -8,15 +12,16 @@ import sys
 import tempfile
 import time
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HOOK_SCRIPT = os.path.join(PROJECT_ROOT, ".claude", "hooks", "regex_filter.py")
-CONFIG_FILE = os.path.join(PROJECT_ROOT, ".claude", "hooks", "filter_rules.json")
-HOOKS_DIR = os.path.join(PROJECT_ROOT, ".claude", "hooks")
-OVERRIDE_FILE = os.path.join(HOOKS_DIR, "config_overrides.json")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from conftest import (
+    REGEX_FILTER, BASH_RULES, HOOKS_DIR, OVERRIDE_FILE,
+    run_hook, TestRunner,
+)
 
+
+# --- Helpers ---
 
 def _backup_and_write_overrides(overrides_data: dict) -> str | None:
-    """Backup existing overrides and write new ones. Returns backup path."""
     backup = None
     if os.path.isfile(OVERRIDE_FILE):
         backup = OVERRIDE_FILE + ".bak"
@@ -27,42 +32,14 @@ def _backup_and_write_overrides(overrides_data: dict) -> str | None:
 
 
 def _restore_overrides(backup: str | None):
-    """Restore original overrides file."""
     if backup and os.path.isfile(backup):
         os.rename(backup, OVERRIDE_FILE)
     elif os.path.isfile(OVERRIDE_FILE):
-        # Restore to empty template
         with open(OVERRIDE_FILE, "w") as f:
             json.dump({"version": 1, "overrides": [], "nlp_overrides": {}}, f)
 
 
-def run_hook(command: str) -> str:
-    """Run the regex filter and return 'allow', 'warn', or 'block'."""
-    hook_input = json.dumps({
-        "session_id": "test-override-session",
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Bash",
-        "tool_input": {"command": command},
-    })
-    result = subprocess.run(
-        [sys.executable, HOOK_SCRIPT, CONFIG_FILE],
-        input=hook_input,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode == 0 and result.stdout.strip():
-        try:
-            output = json.loads(result.stdout)
-            decision = output.get("hookSpecificOutput", {}).get("permissionDecision", "allow")
-            if decision == "deny":
-                return "block"
-            elif decision == "ask":
-                return "warn"
-            return "allow"
-        except json.JSONDecodeError:
-            return "allow"
-    return "allow"
-
+# --- Tests ---
 
 def test_override_allows_blocked_command():
     """Override allows a previously-blocked (ask) command."""
@@ -75,17 +52,17 @@ def test_override_allows_blocked_command():
         }],
     })
     try:
-        result = run_hook("curl https://custom-api.example.com/health")
-        passed = result == "allow"
-        print(f"  [{'PASS' if passed else 'FAIL'}] Override allows previously-blocked command")
-        if not passed:
+        result = run_hook(REGEX_FILTER, BASH_RULES, command="curl https://custom-api.example.com/health")
+        ok = result == "allow"
+        print(f"  [{'PASS' if ok else 'FAIL'}] Override allows previously-blocked command")
+        if not ok:
             print(f"         Expected: allow, Got: {result}")
-        return passed
+        return ok
     finally:
         _restore_overrides(backup)
 
 
-def test_override_no_effect_on_non_overridable():
+def test_no_effect_on_non_overridable():
     """Override does NOT apply to non-overridable rule (block_sensitive_data)."""
     backup = _backup_and_write_overrides({
         "version": 1,
@@ -96,17 +73,18 @@ def test_override_no_effect_on_non_overridable():
         }],
     })
     try:
-        result = run_hook("curl -H 'x-api-key: sk-ant-abc123def456' http://localhost:8080/proxy")
-        passed = result == "block"
-        print(f"  [{'PASS' if passed else 'FAIL'}] Override does NOT apply to non-overridable rule")
-        if not passed:
+        result = run_hook(REGEX_FILTER, BASH_RULES,
+                          command="curl -H 'x-api-key: sk-ant-abc123def456' http://localhost:8080/proxy")
+        ok = result == "block"
+        print(f"  [{'PASS' if ok else 'FAIL'}] Override does NOT apply to non-overridable rule")
+        if not ok:
             print(f"         Expected: block, Got: {result}")
-        return passed
+        return ok
     finally:
         _restore_overrides(backup)
 
 
-def test_expired_override_ignored():
+def test_expired_override():
     """Expired override is ignored."""
     backup = _backup_and_write_overrides({
         "version": 1,
@@ -118,17 +96,17 @@ def test_expired_override_ignored():
         }],
     })
     try:
-        result = run_hook("curl https://expired-api.com/data")
-        passed = result == "warn"
-        print(f"  [{'PASS' if passed else 'FAIL'}] Expired override is ignored")
-        if not passed:
+        result = run_hook(REGEX_FILTER, BASH_RULES, command="curl https://expired-api.com/data")
+        ok = result == "warn"
+        print(f"  [{'PASS' if ok else 'FAIL'}] Expired override is ignored")
+        if not ok:
             print(f"         Expected: warn, Got: {result}")
-        return passed
+        return ok
     finally:
         _restore_overrides(backup)
 
 
-def test_override_wrong_rule_name_ignored():
+def test_wrong_rule_name():
     """Override targeting wrong rule_name is ignored."""
     backup = _backup_and_write_overrides({
         "version": 1,
@@ -139,32 +117,31 @@ def test_override_wrong_rule_name_ignored():
         }],
     })
     try:
-        result = run_hook("curl https://wrong-target.com/data")
-        passed = result == "warn"
-        print(f"  [{'PASS' if passed else 'FAIL'}] Override with wrong rule_name is ignored")
-        if not passed:
+        result = run_hook(REGEX_FILTER, BASH_RULES, command="curl https://wrong-target.com/data")
+        ok = result == "warn"
+        print(f"  [{'PASS' if ok else 'FAIL'}] Override with wrong rule_name is ignored")
+        if not ok:
             print(f"         Expected: warn, Got: {result}")
-        return passed
+        return ok
     finally:
         _restore_overrides(backup)
 
 
-def test_no_overrides_file_unchanged_behavior():
+def test_no_overrides_file():
     """No config_overrides.json = unchanged behavior."""
     backup = None
     if os.path.isfile(OVERRIDE_FILE):
         backup = OVERRIDE_FILE + ".bak"
         os.rename(OVERRIDE_FILE, backup)
-    # Remove file entirely
     if os.path.isfile(OVERRIDE_FILE):
         os.remove(OVERRIDE_FILE)
     try:
-        result = run_hook("curl https://some-api.com/data")
-        passed = result == "warn"
-        print(f"  [{'PASS' if passed else 'FAIL'}] No config_overrides.json = unchanged behavior")
-        if not passed:
+        result = run_hook(REGEX_FILTER, BASH_RULES, command="curl https://some-api.com/data")
+        ok = result == "warn"
+        print(f"  [{'PASS' if ok else 'FAIL'}] No config_overrides.json = unchanged behavior")
+        if not ok:
             print(f"         Expected: warn, Got: {result}")
-        return passed
+        return ok
     finally:
         if backup and os.path.isfile(backup):
             os.rename(backup, OVERRIDE_FILE)
@@ -173,7 +150,7 @@ def test_no_overrides_file_unchanged_behavior():
                 json.dump({"version": 1, "overrides": [], "nlp_overrides": {}}, f)
 
 
-def test_audit_log_records_override_allow():
+def test_audit_log_records_override():
     """Audit log records override_allow event."""
     audit_log = os.path.join(tempfile.mkdtemp(), "audit.log")
     backup = _backup_and_write_overrides({
@@ -187,35 +164,27 @@ def test_audit_log_records_override_allow():
     env = os.environ.copy()
     env["HOOK_AUDIT_LOG"] = audit_log
     try:
-        hook_input = json.dumps({
-            "session_id": "test-audit-session",
-            "hook_event_name": "PreToolUse",
-            "tool_name": "Bash",
-            "tool_input": {"command": "curl https://audit-test.example.com/health"},
-        })
-        subprocess.run(
-            [sys.executable, HOOK_SCRIPT, CONFIG_FILE],
-            input=hook_input, capture_output=True, text=True, env=env,
-        )
-        passed = False
+        run_hook(REGEX_FILTER, BASH_RULES,
+                 command="curl https://audit-test.example.com/health", env=env)
+        ok = False
         if os.path.isfile(audit_log):
             with open(audit_log) as f:
                 for line in f:
                     entry = json.loads(line)
                     if entry.get("action") == "override_allow":
-                        passed = True
+                        ok = True
                         break
-        print(f"  [{'PASS' if passed else 'FAIL'}] Audit log records override_allow")
-        if not passed:
+        print(f"  [{'PASS' if ok else 'FAIL'}] Audit log records override_allow")
+        if not ok:
             print("         Expected: override_allow entry in audit log")
-        return passed
+        return ok
     finally:
         _restore_overrides(backup)
         if os.path.isfile(audit_log):
             os.remove(audit_log)
 
 
-def test_override_cli_add_list_remove():
+def test_cli_add_list_remove():
     """Override CLI add/list/remove functional test."""
     cli_script = os.path.join(HOOKS_DIR, "override_cli.py")
     if not os.path.isfile(cli_script):
@@ -246,24 +215,23 @@ def test_override_cli_add_list_remove():
             capture_output=True, text=True,
         )
         if "cli-test" not in result.stdout.lower() and "block_untrusted_network" not in result.stdout:
-            print(f"  [FAIL] Override CLI list doesn't show added override")
+            print("  [FAIL] Override CLI list doesn't show added override")
             return False
 
         # Verify it works
-        actual = run_hook("curl https://cli-test.com/data")
+        actual = run_hook(REGEX_FILTER, BASH_RULES, command="curl https://cli-test.com/data")
         if actual != "allow":
             print(f"  [FAIL] CLI-added override didn't take effect: {actual}")
             return False
 
         # Remove
-        # Find the auto-generated name
         with open(OVERRIDE_FILE) as f:
             data = json.load(f)
-        override_name = data["overrides"][0]["name"] if data["overrides"] else ""
-        if override_name:
+        name = data["overrides"][0]["name"] if data["overrides"] else ""
+        if name:
             result = subprocess.run(
                 [sys.executable, cli_script, "remove",
-                 "--scope", "project", "--name", override_name],
+                 "--scope", "project", "--name", name],
                 capture_output=True, text=True,
             )
             if result.returncode != 0:
@@ -276,81 +244,56 @@ def test_override_cli_add_list_remove():
         _restore_overrides(backup)
 
 
-def test_performance_many_overrides():
+def test_performance():
     """50 overrides check completes quickly."""
-    overrides = []
-    for i in range(50):
-        overrides.append({
-            "name": f"perf_test_{i}",
-            "rule_name": "block_untrusted_network",
-            "patterns": [{"pattern": f"https?://perf-{i}\\.example\\.com", "label": f"Perf {i}"}],
-        })
-    backup = _backup_and_write_overrides({
-        "version": 1, "overrides": overrides,
-    })
+    overrides = [{
+        "name": f"perf_test_{i}",
+        "rule_name": "block_untrusted_network",
+        "patterns": [{"pattern": f"https?://perf-{i}\\.example\\.com", "label": f"Perf {i}"}],
+    } for i in range(50)]
+    backup = _backup_and_write_overrides({"version": 1, "overrides": overrides})
     try:
         start = time.monotonic()
-        run_hook("curl https://perf-25.example.com/test")
+        run_hook(REGEX_FILTER, BASH_RULES, command="curl https://perf-25.example.com/test")
         elapsed_ms = (time.monotonic() - start) * 1000
-        # Should complete well under 500ms (generous for subprocess overhead)
-        passed = elapsed_ms < 500
-        print(f"  [{'PASS' if passed else 'FAIL'}] Performance: 50 overrides in {elapsed_ms:.1f}ms")
-        return passed
+        ok = elapsed_ms < 500
+        print(f"  [{'PASS' if ok else 'FAIL'}] Performance: 50 overrides in {elapsed_ms:.1f}ms")
+        return ok
     finally:
         _restore_overrides(backup)
 
 
-def test_override_resolver_unit():
+def test_resolver_unit():
     """Unit test for override_resolver module."""
     sys.path.insert(0, HOOKS_DIR)
     try:
         from override_resolver import check_override
 
-        # Test basic override match
+        # Basic match
         rule = {"name": "test_rule", "overridable": True}
-        overrides = [{
-            "name": "test_ovr",
-            "rule_name": "test_rule",
-            "_source": "project",
-            "patterns": [{"pattern": "hello"}],
-        }]
+        overrides = [{"name": "test_ovr", "rule_name": "test_rule",
+                       "_source": "project", "patterns": [{"pattern": "hello"}]}]
         result = check_override(overrides, rule, "hello world")
-        assert result is not None
-        assert result["override_name"] == "test_ovr"
+        assert result is not None and result["override_name"] == "test_ovr"
 
-        # Test non-overridable
+        # Non-overridable
         rule2 = {"name": "hard_rule", "overridable": False}
-        overrides2 = [{
-            "name": "try_ovr",
-            "rule_name": "hard_rule",
-            "_source": "project",
-            "patterns": [{"pattern": "hello"}],
-        }]
-        result2 = check_override(overrides2, rule2, "hello world")
-        assert result2 is None
+        overrides2 = [{"name": "try_ovr", "rule_name": "hard_rule",
+                        "_source": "project", "patterns": [{"pattern": "hello"}]}]
+        assert check_override(overrides2, rule2, "hello world") is None
 
-        # Test expired
+        # Expired
         rule3 = {"name": "exp_rule", "overridable": True}
-        overrides3 = [{
-            "name": "exp_ovr",
-            "rule_name": "exp_rule",
-            "_source": "project",
-            "patterns": [{"pattern": "hello"}],
-            "expires": "2020-01-01",
-        }]
-        result3 = check_override(overrides3, rule3, "hello world")
-        assert result3 is None
+        overrides3 = [{"name": "exp_ovr", "rule_name": "exp_rule",
+                        "_source": "project", "patterns": [{"pattern": "hello"}],
+                        "expires": "2020-01-01"}]
+        assert check_override(overrides3, rule3, "hello world") is None
 
-        # Test no pattern match
+        # No pattern match
         rule4 = {"name": "no_match", "overridable": True}
-        overrides4 = [{
-            "name": "no_match_ovr",
-            "rule_name": "no_match",
-            "_source": "project",
-            "patterns": [{"pattern": "xyz123"}],
-        }]
-        result4 = check_override(overrides4, rule4, "hello world")
-        assert result4 is None
+        overrides4 = [{"name": "no_match_ovr", "rule_name": "no_match",
+                        "_source": "project", "patterns": [{"pattern": "xyz123"}]}]
+        assert check_override(overrides4, rule4, "hello world") is None
 
         print("  [PASS] Override resolver unit tests")
         return True
@@ -362,40 +305,24 @@ def test_override_resolver_unit():
 
 
 def main():
-    print("=" * 60)
-    print("Testing Override System")
-    print("=" * 60)
-
-    passed = 0
-    failed = 0
+    t = TestRunner("Testing Override System")
+    t.header()
 
     tests = [
-        test_override_resolver_unit,
+        test_resolver_unit,
         test_override_allows_blocked_command,
-        test_override_no_effect_on_non_overridable,
-        test_expired_override_ignored,
-        test_override_wrong_rule_name_ignored,
-        test_no_overrides_file_unchanged_behavior,
-        test_audit_log_records_override_allow,
-        test_override_cli_add_list_remove,
-        test_performance_many_overrides,
+        test_no_effect_on_non_overridable,
+        test_expired_override,
+        test_wrong_rule_name,
+        test_no_overrides_file,
+        test_audit_log_records_override,
+        test_cli_add_list_remove,
+        test_performance,
     ]
+    for fn in tests:
+        t.run_fn(fn)
 
-    for test_fn in tests:
-        try:
-            if test_fn():
-                passed += 1
-            else:
-                failed += 1
-        except Exception as e:
-            print(f"  [FAIL] {test_fn.__name__}: {e}")
-            failed += 1
-
-    print("=" * 60)
-    print(f"Results: {passed} passed, {failed} failed, {passed + failed} total")
-    print("=" * 60)
-
-    sys.exit(0 if failed == 0 else 1)
+    sys.exit(t.summary())
 
 
 if __name__ == "__main__":

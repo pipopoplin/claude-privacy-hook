@@ -1,18 +1,56 @@
 # claude-privacy-hook
 
-Security hooks for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that intercept Bash commands before execution and block credential leaks, untrusted network calls, PII exposure, prompt injection, and sensitive file access.
+Security hooks for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that protect your data before it ever leaves your machine.
 
-Multi-layer defense with PreToolUse and PostToolUse hooks:
+## The Problem
 
-| Hook | What it catches | Latency | Dependencies |
-|------|----------------|---------|--------------|
-| **regex_filter** (Bash) | API keys, vendor tokens, untrusted endpoints, employee IDs, IBANs, passports, base64, prompt injection, shell obfuscation, path traversal, sensitive files, DB connections, DNS exfiltration, pipe chains, internal IPs, customer IDs | <1ms | None |
-| **regex_filter** (Write/Edit) | Sensitive data in file content (API keys, credentials, PII patterns) | <1ms | None |
-| **regex_filter** (Read) | Access to sensitive file paths (.env, .ssh, .aws, etc.) | <1ms | None |
-| **llm_filter** | PII (names, emails, SSNs, credit cards, phone numbers, IP addresses) | 3-25ms | One NLP plugin |
-| **llm_filter** (supplementary) | Prompt injection, medical/biometric/protected data, high-entropy secrets, suspicious intent | ~1ms each | None (built-in) |
-| **output_sanitizer** | Redacts sensitive data from command stdout/stderr (PostToolUse) | <1ms | None |
-| **rate_limiter** | Escalates when too many violations occur in a session window | <1ms | None |
+AI coding assistants are powerful — but they can accidentally leak API keys, send personal data to untrusted servers, or expose credentials hidden in your codebase. A single unguarded command is all it takes.
+
+## The Solution
+
+**claude-privacy-hook** intercepts every tool action Claude Code takes — commands, file reads, file writes — and blocks anything that could expose sensitive data. It works silently in the background with zero configuration needed.
+
+### What it catches
+
+- **Credentials** — API keys, cloud tokens (AWS, GCP, Azure), private keys, database passwords, vendor secrets (Stripe, GitHub, Slack, etc.)
+- **Personal data (PII)** — names, email addresses, phone numbers, SSNs, credit card numbers, passport and driver licence numbers
+- **Financial data** — IBANs, bank accounts, routing numbers, customer/invoice/order IDs
+- **Employee data** — employee IDs, HR numbers, payroll references
+- **Attack attempts** — prompt injection, shell obfuscation, path traversal, DNS exfiltration, pipe-chain data theft
+- **Network leaks** — blocks calls to untrusted servers while allowing safe ones (GitHub, npm, PyPI, localhost)
+- **Sensitive files** — prevents reading `.env`, `.ssh`, `.aws/credentials`, `/etc/shadow`, and similar
+- **Output leaks** — redacts any sensitive data that appears in command output after execution
+
+### Why use it
+
+- **Zero trust by default** — every action is checked, not just the ones you think of
+- **No workflow disruption** — trusted tools and endpoints are pre-approved; you only get blocked when something is genuinely risky
+- **Defense in depth** — four independent layers so no single bypass compromises everything
+- **Compliance-ready** — maps to 40 security controls across GDPR, HIPAA, PCI-DSS, and OWASP standards
+- **Fully auditable** — every blocked action is logged with timestamps, patterns matched, and command hashes
+- **No cloud dependency** — everything runs locally on your machine, nothing phones home
+
+## How It Works
+
+Four independent security layers run on every action:
+
+| Layer | What it does | Speed |
+|-------|-------------|-------|
+| **Regex filter** | Pattern-matches 160+ known credential formats, attack signatures, and sensitive data | <1ms |
+| **NLP filter** | Detects PII that patterns can't catch (real names, contextual data) using AI models | 3-25ms |
+| **Rate limiter** | Escalates when too many suspicious actions happen in a session | <1ms |
+| **Output sanitizer** | Redacts sensitive data from command results after execution | <1ms |
+
+```
+Bash command → Regex filter (16 rules) → NLP filter (7 plugins) → Rate limiter → Execute
+                                                                                    ↓
+                                                                          Output sanitizer → Result
+
+Write/Edit   → Regex filter (content rules) → Execute
+Read         → Regex filter (path rules)    → Execute
+```
+
+All blocked events are written to an audit log for review and compliance.
 
 ## Installation
 
@@ -40,7 +78,7 @@ Or use this repo directly as your project.
 
 ### 3. Install an NLP plugin (optional, for PII detection)
 
-The regex filter and prompt injection plugin work with zero dependencies. For NLP-based PII detection, install one backend:
+The regex filter and built-in plugins work with zero dependencies. For NLP-based PII detection, install one backend:
 
 ```bash
 # spaCy — recommended, lightweight, ~3ms
@@ -72,214 +110,19 @@ python3 test_llm_hook.py    # NLP filter tests (39 cases, supplementary plugins 
 
 Hooks are loaded at session startup. Restart Claude Code or run `/hooks` to review the active hooks.
 
-## How It Works
-
-Hooks fire at different stages depending on the tool. All hooks log blocked/redacted events to `audit.log` via the audit logger.
-
-```
-Bash command → regex_filter.py (filter_rules.json, 16 rules, <1ms)
-             → llm_filter.py (PII + 4 supplementary plugins, 3-25ms)
-             → rate_limiter.py (violation escalation, <1ms)
-             → execute or block
-                  ↓
-             output_sanitizer.py (PostToolUse, 7 redaction rules) → redact stdout/stderr
-
-Write/Edit   → regex_filter.py (filter_rules_write.json, 8 rules) → execute or block
-Read         → regex_filter.py (filter_rules_read.json, 1 rule)   → execute or block
-```
-
-### Regex filter (layer 1)
-
-Evaluates rules from `.claude/hooks/filter_rules.json` top-to-bottom. First match wins. All deny rules are placed before the allow rule to ensure sensitive data is blocked even when sent to trusted endpoints.
-
-| Rule | Action | What it catches |
-|------|--------|----------------|
-| `block_sensitive_data` | DENY | API keys (`sk-ant-*`, `sk-*`), AWS creds, GitHub/GitLab tokens, Stripe, Google, SendGrid, Twilio, JWT, npm, PyPI, Hugging Face, DigitalOcean, Vault tokens, private keys, hardcoded passwords |
-| `block_employee_hr_ids` | DENY | Employee IDs (`EMP-12345`), HR numbers, staff IDs, payroll IDs |
-| `block_iban_bank_accounts` | DENY | IBAN numbers, routing numbers, SWIFT/BIC codes, sort codes, bank account numbers |
-| `block_passport_licence` | DENY | Passport numbers, driver licence numbers, national IDs |
-| `block_base64_payloads` | DENY | `base64` CLI, `b64encode()`, `atob()`/`btoa()`, long base64 strings (80+ chars) |
-| `block_prompt_injection` | DENY | "ignore previous instructions", role reassignment, jailbreak phrases, XML tag injection |
-| `block_shell_obfuscation` | DENY | `eval`, hex/octal escapes, `/dev/tcp`, `/dev/udp`, `IFS=`, `source <(...)`, exec fd redirection |
-| `block_path_traversal` | DENY | 3+ levels `../`, 2+ levels to sensitive files, URL-encoded `%2e%2e`, double-encoded variants |
-| `block_sensitive_file_access` | DENY | `/etc/shadow`, `.ssh/id_*`, `.env`, `.aws/credentials`, `.kube/config`, shell history files |
-| `block_database_connection_strings` | DENY | `postgres://user:pass@host`, `DATABASE_URL=`, JDBC, ADO.NET, ODBC connection strings |
-| `block_dns_exfiltration` | DENY | `dig`/`nslookup`/`host` with `$()`, backticks, pipes, TXT queries, `+short` |
-| `block_pipe_chain_exfiltration` | DENY | Multi-stage pipes to network tools, file-read-to-curl, reverse shells, `mkfifo`, `mail`/`sendmail` |
-| `block_internal_network_addresses` | DENY | RFC1918 (10.x, 172.16-31.x, 192.168.x), link-local, cloud metadata endpoints, .internal/.corp/.lan suffixes |
-| `block_customer_contract_ids` | DENY | Customer IDs (`CUST-*`), invoices (`INV-*`), orders (`ORD-*`), contracts, accounts, POs, tenant/subscription IDs |
-| `allow_trusted_endpoints` | ALLOW | localhost, package registries (PyPI, npm, crates.io), VCS hosts (GitHub, GitLab, Bitbucket) |
-| `block_untrusted_network` | DENY | curl, wget, ssh, Python requests/httpx, JS fetch/axios, Anthropic/OpenAI SDK calls, netcat, etc. |
-
-### NLP filter (layer 2)
-
-Detects PII that regex can't catch — real names, email addresses, phone numbers, SSNs, credit card numbers embedded in commands.
-
-Uses a two-tier plugin dispatch:
-
-1. **PII plugins** — tries plugins in priority order, uses the first available:
-
-| Plugin | Tier | Latency | Best for |
-|--------|------|---------|----------|
-| presidio | SubMillisecond | ~0.4ms | Production, known PII types |
-| spacy | EdgeDevice | ~3ms | Low resource, good default |
-| distilbert | HighAccuracy | ~25ms | Maximum detection accuracy |
-
-2. **Supplementary plugins** — always run independently, regardless of which PII plugin is active:
-
-| Plugin | Tier | Latency | Best for |
-|--------|------|---------|----------|
-| prompt_injection | EdgeDevice | ~1ms | Jailbreak / injection detection (no external deps) |
-| sensitive_categories | EdgeDevice | ~1ms | Medical, biometric, and GDPR Art.9 protected categories (no external deps) |
-| entropy_detector | EdgeDevice | ~1ms | High-entropy secret detection for unknown token formats (no external deps) |
-| semantic_intent | EdgeDevice | ~1ms | Verb+target heuristic classification for suspicious command intent (no external deps) |
-
-The supplementary plugin architecture ensures all these detectors fire on every command, even if no PII plugin is installed.
-
 ## Configuration
 
-### Allow a trusted endpoint
+The hooks work out of the box. For customization:
 
-Add a pattern to the `allow_trusted_endpoints` rule in `.claude/hooks/filter_rules.json`:
+- **Allow a trusted endpoint** — add a URL pattern to `allow_trusted_endpoints` in `.claude/hooks/filter_rules.json`
+- **Adjust NLP sensitivity** — change `min_confidence` in `.claude/hooks/llm_filter_config.json` (lower = catches more, higher = fewer false positives)
+- **Disable a hook** — set `"enabled": false` in the config, or remove the hook entry from `.claude/settings.json`
 
-```json
-{"pattern": "https?://api\\.your-company\\.com", "label": "Your API"}
-```
+See the full [Configuration guide](docs/configuration.md) for all options.
 
-### Adjust NLP sensitivity
+## Compliance Coverage
 
-Edit `.claude/hooks/llm_filter_config.json`:
-
-```json
-{
-  "min_confidence": 0.7,
-  "action": "deny",
-  "entity_types": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "US_SSN", "CREDIT_CARD", "IP_ADDRESS",
-                   "PROMPT_INJECTION", "MEDICAL_DATA", "BIOMETRIC_DATA", "PROTECTED_CATEGORY",
-                   "HIGH_ENTROPY_SECRET", "SUSPICIOUS_INTENT"]
-}
-```
-
-- `min_confidence` — lower catches more, higher reduces false positives (default: 0.7)
-- `action` — `"deny"` blocks, `"ask"` prompts user for approval
-- `entity_types` — which entity types to detect
-- `plugin_priority` — PII plugin preference order (first available wins)
-- `supplementary_plugins` — plugins that always run independently (default: `["prompt_injection", "sensitive_categories", "entropy_detector", "semantic_intent"]`)
-
-### Disable a hook
-
-Set `"enabled": false` in `llm_filter_config.json` to disable the NLP hook, or remove its entry from `.claude/settings.json`.
-
-To disable a specific regex rule, add `"enabled": false` to the rule in `filter_rules.json`.
-
-### Add a custom NLP plugin
-
-1. Create `.claude/hooks/plugins/my_plugin.py`:
-
-```python
-from .base import DetectionResult, SensitiveContentPlugin
-
-class MyPlugin(SensitiveContentPlugin):
-    name = "my_plugin"
-    tier = "Custom"
-
-    def is_available(self) -> bool:
-        try:
-            import my_library
-            return True
-        except ImportError:
-            return False
-
-    def detect(self, text, entity_types=None):
-        # Return list of DetectionResult
-        return []
-```
-
-2. Register in `.claude/hooks/plugins/plugins.json`:
-
-```json
-{
-  "my_plugin": {
-    "module": "plugins.my_plugin",
-    "class": "MyPlugin",
-    "tier": "Custom",
-    "latency": "~5ms",
-    "description": "My custom detector",
-    "install": "pip install my-library"
-  }
-}
-```
-
-3. Add to `llm_filter_config.json`:
-
-```json
-{
-  "plugin_priority": ["my_plugin", "presidio", "spacy"],
-  "plugins": {
-    "my_plugin": {
-      "enabled": true
-    }
-  }
-}
-```
-
-To make a plugin supplementary (always runs alongside the primary PII plugin), add it to `supplementary_plugins` instead of `plugin_priority`.
-
-## Project Structure
-
-```
-.claude/
-  settings.json                       # Hook registration (PreToolUse + PostToolUse, multi-tool matchers)
-  hooks/
-    regex_filter.py                   # Layer 1: regex rule engine + Unicode normalization
-    filter_rules.json                 # Bash regex rules (16 rules, ~160 patterns)
-    filter_rules_write.json           # Write/Edit tool rules (sensitive data in file content)
-    filter_rules_read.json            # Read tool rules (sensitive file path access)
-    llm_filter.py                     # Layer 2: NLP plugin dispatcher (PII + supplementary)
-    llm_filter_config.json            # NLP plugin config (priority, thresholds, supplementary)
-    output_sanitizer.py               # PostToolUse: redacts sensitive data from command output
-    output_sanitizer_rules.json       # Output sanitizer rules (API keys, SSNs, cards, etc.)
-    rate_limiter.py                   # PreToolUse: escalates on repeated session violations
-    rate_limiter_config.json          # Rate limiter config (thresholds, window, cooldown)
-    audit_logger.py                   # JSONL audit logger for blocked events
-    plugins/
-      plugins.json                    # Plugin registry (7 plugins)
-      base.py                         # SensitiveContentPlugin ABC + DetectionResult
-      presidio_plugin.py              # Microsoft Presidio backend
-      spacy_plugin.py                 # spaCy + regex backend
-      distilbert_plugin.py            # DistilBERT NER backend
-      prompt_injection_plugin.py      # Prompt injection / jailbreak detection (no deps)
-      sensitive_categories_plugin.py  # Medical, biometric, protected category detection (no deps)
-      entropy_detector_plugin.py      # High-entropy secret detection (no deps)
-      semantic_intent_plugin.py       # Verb+target suspicious intent scoring (no deps)
-    audit.log                         # JSONL audit log (generated at runtime)
-docs/
-  sequence-diagram.md                 # Mermaid diagrams rendered in Markdown
-  sequence-diagram.mmd                # Full pipeline sequence diagram (Mermaid source)
-  sequence-diagram.svg                # Full pipeline sequence diagram (rendered)
-  decision-flow.mmd                   # Decision flowchart (Mermaid source)
-  decision-flow.svg                   # Decision flowchart (rendered)
-main.py                               # Entry point (placeholder)
-test_hook.py                          # Regex filter tests (126 cases)
-test_llm_hook.py                      # NLP filter tests (39+ cases)
-requirements.txt                      # Python dependencies (spaCy default)
-CLAUDE.md                             # Claude Code project guidance
-LICENSE                               # Business Source License 1.1
-```
-
-## Diagrams
-
-### Decision Flow
-
-![Decision flow](docs/decision-flow.svg)
-
-### Sequence Diagram
-
-![Sequence diagram](docs/sequence-diagram.svg)
-
-## 📊 SCF-Mapped Security & Privacy Filter Table
-
-Full coverage map across Phase 1, Phase 2, and Phase 3.
+All 40 filters are implemented across the four security layers.
 
 | # | Filter | Layer | Scope | SCF Domain | SCF Control | Regulation | Value |
 |---|--------|-------|-------|------------|-------------|------------|-------|
@@ -323,8 +166,6 @@ Full coverage map across Phase 1, Phase 2, and Phase 3.
 | 38 | Rate limiting / anomaly | Meta | 🔐 | OPS | OPS-08 | — | 🟡 Medium |
 | 39 | Non-Bash tool coverage | Config | 🔐🛡️ | OPS | OPS-05 | GDPR Art.32 | 🟡 Medium |
 | 40 | Semantic intent scoring | L2 NLP | 🔐🛡️ | TVM | TVM-10 | OWASP LLM01 | 🟡 Medium |
-
-All 40 filters are implemented.
 
 ### Glossary
 
@@ -402,6 +243,16 @@ All 40 filters are implemented.
 | **OWASP LLM01** | OWASP Top 10 for LLMs — prompt injection |
 | **OWASP A05** | OWASP Top 10 — security misconfiguration (path traversal) |
 
+## Documentation
+
+| Document | Audience | Description |
+|----------|----------|-------------|
+| [Architecture](docs/architecture.md) | Developers, contributors | Hook pipeline internals, layer details, project structure |
+| [Configuration](docs/configuration.md) | Developers | Rule format, all configuration options, tuning guide |
+| [Plugins](docs/plugins.md) | Plugin developers | Plugin API, writing and registering custom plugins |
+| [Testing](docs/testing.md) | Contributors | Test suites, running tests, adding test cases |
+| [Diagrams](docs/sequence-diagram.md) | All | Visual pipeline sequence and decision flow diagrams |
+
 ## License
 
 [Business Source License 1.1](LICENSE)
@@ -411,4 +262,3 @@ Free for non-production use (evaluation, testing, development, personal projects
 On the Change Date (4 years after each version's release), that version converts to [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
 NLP plugin dependencies (spaCy, Presidio, transformers, PyTorch) use permissive licenses (MIT/Apache 2.0/BSD).
-

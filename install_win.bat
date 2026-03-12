@@ -4,14 +4,14 @@ REM Claude Privacy Hook — Installation Script (Windows)
 REM ============================================================================
 REM
 REM Usage:
-REM   install.bat              Full install (all NLP plugins)
-REM   install.bat --core       Core only (no NLP plugins)
-REM   install.bat --spacy      Core + spaCy plugin only
-REM   install.bat --presidio   Core + Presidio plugin only
-REM   install.bat --distilbert Core + DistilBERT plugin only
-REM   install.bat --all        All NLP plugins
+REM   install_win.bat              Full install (all NLP plugins)
+REM   install_win.bat --core       Core only (no NLP plugins)
+REM   install_win.bat --spacy      Core + spaCy plugin only
+REM   install_win.bat --presidio   Core + Presidio plugin only
+REM   install_win.bat --distilbert Core + DistilBERT plugin only
+REM   install_win.bat --all        All NLP plugins
 REM
-REM Flags can be combined: install.bat --spacy --presidio
+REM Flags can be combined: install_win.bat --spacy --presidio
 REM ============================================================================
 
 setlocal enabledelayedexpansion
@@ -42,7 +42,7 @@ echo [FAIL] Unknown argument: %~1 (use --help for usage)
 exit /b 1
 
 :show_help
-echo Usage: install.bat [--core] [--spacy] [--presidio] [--distilbert] [--all]
+echo Usage: install_win.bat [--core] [--spacy] [--presidio] [--distilbert] [--all]
 echo.
 echo   (no args)     Install all NLP plugins (same as --all)
 echo   --core        Core hooks only (no NLP plugins)
@@ -51,7 +51,7 @@ echo   --presidio    Core + Presidio plugin
 echo   --distilbert  Core + DistilBERT plugin (large download)
 echo   --all         All NLP plugins
 echo.
-echo Flags can be combined: install.bat --spacy --presidio
+echo Flags can be combined: install_win.bat --spacy --presidio
 exit /b 0
 
 :done_args

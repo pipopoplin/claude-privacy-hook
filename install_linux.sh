@@ -4,12 +4,12 @@
 # ============================================================================
 #
 # Usage:
-#   chmod +x install.sh
-#   ./install.sh              # Full install (all NLP plugins)
-#   ./install.sh --core       # Core only (no NLP plugins)
-#   ./install.sh --spacy      # Core + spaCy plugin only
-#   ./install.sh --presidio   # Core + Presidio plugin only
-#   ./install.sh --distilbert # Core + DistilBERT plugin only
+#   chmod +x install_linux.sh
+#   ./install_linux.sh              # Full install (all NLP plugins)
+#   ./install_linux.sh --core       # Core only (no NLP plugins)
+#   ./install_linux.sh --spacy      # Core + spaCy plugin only
+#   ./install_linux.sh --presidio   # Core + Presidio plugin only
+#   ./install_linux.sh --distilbert # Core + DistilBERT plugin only
 #
 # The script creates a virtual environment named claude_privacy_hook_env
 # in the project root directory.

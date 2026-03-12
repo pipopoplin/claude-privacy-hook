@@ -21,7 +21,7 @@ The managed layer is the highest-priority security layer. Rules deployed here:
 Install the project first using the installation scripts (see main [README](../README.md#installation)):
 
 ```bash
-./install.sh --core   # Managed layer only needs core hooks (no NLP plugins)
+./install_linux.sh --core   # Managed layer only needs core hooks (no NLP plugins)
 ```
 
 ## Installation

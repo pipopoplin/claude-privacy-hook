@@ -6,13 +6,13 @@ See the main [README](../README.md#installation) for full installation instructi
 
 ```bash
 # Linux / macOS
-./install.sh              # Full install (all NLP plugins)
-./install.sh --core       # Core only (zero dependencies)
-./install.sh --spacy      # Recommended: core + spaCy
+./install_linux.sh              # Full install (all NLP plugins)
+./install_linux.sh --core       # Core only (zero dependencies)
+./install_linux.sh --spacy      # Recommended: core + spaCy
 
 # Windows
-install.bat               # Full install
-install.bat --core        # Core only
+install_win.bat               # Full install
+install_win.bat --core        # Core only
 
 # Activate the virtual environment
 source claude_privacy_hook_env/bin/activate   # Linux/macOS

@@ -25,11 +25,11 @@ Override priority: user > project. Managed/non-overridable rules cannot be bypas
 
 ```bash
 # --- Installation ---
-./install.sh              # Linux: full install (all NLP plugins)
-./install.sh --core       # Linux: core only (no NLP plugins)
-./install.sh --spacy      # Linux: core + spaCy only
-./install_mac.sh          # macOS: checks Xcode CLT + Homebrew, delegates to install.sh
-install.bat               # Windows: full install
+./install_linux.sh              # Linux: full install (all NLP plugins)
+./install_linux.sh --core       # Linux: core only (no NLP plugins)
+./install_linux.sh --spacy      # Linux: core + spaCy only
+./install_mac.sh          # macOS: checks Xcode CLT + Homebrew, delegates to install_linux.sh
+install_win.bat               # Windows: full install
 source claude_privacy_hook_env/bin/activate   # Activate venv (Linux/macOS)
 
 # --- Tests ---

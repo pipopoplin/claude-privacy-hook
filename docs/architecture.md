@@ -104,9 +104,9 @@ Override log path via `HOOK_AUDIT_LOG` env var.
 
 ```
 claude-privacy-hook/
-├── install.sh                  # Linux installer
-├── install_mac.sh              # macOS installer (wraps install.sh)
-├── install.bat                 # Windows installer
+├── install_linux.sh            # Linux installer
+├── install_mac.sh              # macOS installer (wraps install_linux.sh)
+├── install_win.bat             # Windows installer
 ├── requirements.txt            # Python dependencies
 ├── .claude/
 │   ├── settings.json           # Hook registrations

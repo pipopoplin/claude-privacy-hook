@@ -3,7 +3,7 @@
 # Claude Privacy Hook — Installation Script (macOS)
 # ============================================================================
 #
-# This is a macOS-specific wrapper around install.sh that handles:
+# This is a macOS-specific wrapper around install_linux.sh that handles:
 #   - Homebrew Python detection (brew install python@3.12)
 #   - Xcode Command Line Tools check (needed for some pip builds)
 #   - Apple Silicon vs Intel considerations for PyTorch
@@ -35,7 +35,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; exit 1; }
 
 # --- Verify macOS ---
 if [[ "$(uname -s)" != "Darwin" ]]; then
-    fail "This script is for macOS only. Use install.sh for Linux."
+    fail "This script is for macOS only. Use install_linux.sh for Linux."
 fi
 
 ARCH="$(uname -m)"
@@ -105,8 +105,8 @@ ok "Found $PYTHON_VERSION ($(command -v "$PYTHON"))"
 info "Launching main installer..."
 echo ""
 
-# Make sure install.sh is executable
-chmod +x "${SCRIPT_DIR}/install.sh"
+# Make sure install_linux.sh is executable
+chmod +x "${SCRIPT_DIR}/install_linux.sh"
 
 # Forward all arguments
-exec "${SCRIPT_DIR}/install.sh" "$@"
+exec "${SCRIPT_DIR}/install_linux.sh" "$@"

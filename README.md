@@ -68,21 +68,21 @@ git clone https://github.com/pipopoplin/claude-privacy-hook.git
 cd claude-privacy-hook
 
 # Linux
-chmod +x install.sh
-./install.sh              # All NLP plugins (spaCy + Presidio + DistilBERT)
-./install.sh --core       # Core hooks only (no NLP plugins, zero dependencies)
-./install.sh --spacy      # Core + spaCy only (recommended, lightweight)
+chmod +x install_linux.sh
+./install_linux.sh              # All NLP plugins (spaCy + Presidio + DistilBERT)
+./install_linux.sh --core       # Core hooks only (no NLP plugins, zero dependencies)
+./install_linux.sh --spacy      # Core + spaCy only (recommended, lightweight)
 
 # macOS
 chmod +x install_mac.sh
 ./install_mac.sh          # Checks Xcode CLT + Homebrew Python, then installs
 
 # Windows
-install.bat               # All NLP plugins
-install.bat --core        # Core hooks only
+install_win.bat               # All NLP plugins
+install_win.bat --core        # Core hooks only
 ```
 
-Flags can be combined: `./install.sh --spacy --presidio`
+Flags can be combined: `./install_linux.sh --spacy --presidio`
 
 | Flag | What it installs | Download size |
 |------|-----------------|--------------|
@@ -107,20 +107,6 @@ source claude_privacy_hook_env/bin/activate
 
 # Windows
 claude_privacy_hook_env\Scripts\activate.bat
-```
-
-### Manual Install
-
-If you prefer to manage your own environment:
-
-```bash
-git clone https://github.com/pipopoplin/claude-privacy-hook.git
-cd claude-privacy-hook
-
-python3 -m venv claude_privacy_hook_env
-source claude_privacy_hook_env/bin/activate  # Linux/macOS
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
 ```
 
 ### Copy Hooks Into Your Project

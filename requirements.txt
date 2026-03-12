@@ -1,18 +1,23 @@
-# Hook system — no dependencies needed for regex_filter
+# Claude Privacy Hook — Python Dependencies
+#
+# Core hook system (regex_filter, output_sanitizer, rate_limiter, audit_logger)
+# requires NO external dependencies — stdlib only.
+#
+# The NLP filter (llm_filter) uses a plugin architecture.
+# Supplementary plugins (prompt_injection, sensitive_categories,
+# entropy_detector, semantic_intent) also need no external deps.
+#
+# The packages below power the optional PII detection plugins.
 
-# NLP plugins for llm_filter (install the one you need)
-# See .claude/hooks/plugins/plugins.json for the full registry
+# --- PII Detection Plugins (all optional, install what you need) ---
 
-# spaCy — edge/low-resource, ~3ms (default)
+# spaCy — edge/low-resource NER, ~3ms per call
 # After install: python -m spacy download en_core_web_sm
 spacy>=3.7
 
-# Microsoft Presidio — known PII, ~0.4ms
-# presidio-analyzer>=2.2
+# Microsoft Presidio — known PII types, ~0.4ms per call
+presidio-analyzer>=2.2
 
-# DistilBERT / NerGuard — best accuracy, ~25ms
-# transformers>=4.36
-# torch>=2.1
-
-# Diagram generation (optional, for docs/*)
-# npm: npx @mermaid-js/mermaid-cli
+# DistilBERT / NerGuard — best accuracy NER, ~25ms per call
+transformers>=4.36
+torch>=2.1

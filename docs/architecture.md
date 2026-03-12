@@ -100,5 +100,43 @@ Override log path via `HOOK_AUDIT_LOG` env var.
 
 **File:** `.claude/hooks/audit_logger.py`
 
+## Project Structure
+
+```
+claude-privacy-hook/
+├── install.sh                  # Linux installer
+├── install_mac.sh              # macOS installer (wraps install.sh)
+├── install.bat                 # Windows installer
+├── requirements.txt            # Python dependencies
+├── .claude/
+│   ├── settings.json           # Hook registrations
+│   └── hooks/
+│       ├── regex_filter.py     # Layer 1: regex engine
+│       ├── llm_filter.py       # Layer 2: NLP standalone
+│       ├── llm_client.py       # Layer 2: NLP client (persistent service)
+│       ├── llm_service.py      # Layer 2: NLP background service
+│       ├── output_sanitizer.py # Post-hook: output redaction
+│       ├── rate_limiter.py     # Meta: violation escalation
+│       ├── audit_logger.py     # Meta: JSONL audit logging
+│       ├── hook_utils.py       # Shared: Unicode normalization, field resolution
+│       ├── override_resolver.py# Override loading and checking
+│       ├── override_cli.py     # Override management CLI
+│       ├── filter_rules.json   # Bash rules (16 rules, ~160 patterns)
+│       ├── filter_rules_write.json  # Write/Edit rules
+│       ├── filter_rules_read.json   # Read rules
+│       ├── llm_filter_config.json   # NLP plugin config
+│       ├── output_sanitizer_rules.json # Redaction rules
+│       ├── rate_limiter_config.json # Rate limiter config
+│       ├── config_overrides.json    # Project-level overrides
+│       └── plugins/
+│           ├── plugins.json    # Plugin registry
+│           ├── base.py         # Plugin ABC
+│           └── *.py            # Plugin implementations
+├── tests/                      # 7 test suites, 1312 cases
+├── benchmarks/                 # 7 benchmark suites
+├── managed/                    # IT deployment templates
+└── docs/                       # Documentation
+```
+
 For visual diagrams of the hook pipeline, see [Hook System — Diagrams](sequence-diagram.md).
 

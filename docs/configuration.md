@@ -1,5 +1,34 @@
 # Configuration
 
+## Installation
+
+See the main [README](../README.md#installation) for full installation instructions. Quick summary:
+
+```bash
+# Linux / macOS
+./install.sh              # Full install (all NLP plugins)
+./install.sh --core       # Core only (zero dependencies)
+./install.sh --spacy      # Recommended: core + spaCy
+
+# Windows
+install.bat               # Full install
+install.bat --core        # Core only
+
+# Activate the virtual environment
+source claude_privacy_hook_env/bin/activate   # Linux/macOS
+claude_privacy_hook_env\Scripts\activate.bat  # Windows
+```
+
+The install scripts create a `claude_privacy_hook_env` virtual environment. Core hooks (regex filter, output sanitizer, rate limiter) use only Python stdlib. NLP plugins are optional.
+
+| Plugin | Package | Use case |
+|--------|---------|----------|
+| spaCy | `spacy` + `en_core_web_sm` | Recommended default, lightweight NER (~3ms) |
+| Presidio | `presidio-analyzer` | Known PII types, fastest (~0.4ms) |
+| DistilBERT | `transformers` + `torch` | Best accuracy NER (~25ms, large download) |
+
+---
+
 ## Allow a Trusted Endpoint
 
 Add a pattern to the `allow_trusted_endpoints` rule in `.claude/hooks/filter_rules.json`:

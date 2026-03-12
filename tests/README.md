@@ -5,7 +5,7 @@ Test suites for all four security hook layers plus the override system and persi
 ## Quick Start
 
 ```bash
-# Run everything (248 tests)
+# Run everything (604 tests)
 python3 tests/run_all.py
 
 # Skip slow service tests
@@ -16,7 +16,7 @@ python3 tests/run_all.py --fast
 
 | Suite | File | Cases | What it tests |
 |-------|------|-------|---------------|
-| **Regex Filter** | `test_regex_filter.py` | 162 | Pattern matching for Bash, Write/Edit, and Read rules |
+| **Regex Filter** | `test_regex_filter.py` | 518 | Pattern matching for Bash, Write/Edit, and Read rules |
 | **NLP Filter** | `test_nlp_filter.py` | 39 | PII detection plugins + supplementary plugins |
 | **Output Sanitizer** | `test_output_sanitizer.py` | 19 | Post-execution redaction of sensitive data in stdout/stderr |
 | **Rate Limiter** | `test_rate_limiter.py` | 9 | Session-based violation threshold escalation |
@@ -38,20 +38,21 @@ python3 tests/run_all.py --fast
 
 ### test_regex_filter.py
 
-Tests the regex filter (`regex_filter.py`) against all three rule sets:
+Tests the regex filter (`regex_filter.py`) against all three rule sets with extensive edge-value coverage:
 
-**Bash rules** (`filter_rules.json`) — 126 cases:
-- Allow: no-network commands, trusted endpoints (localhost, GitHub, PyPI, npm, GitLab)
-- Warn (ask): untrusted network endpoints, employee IDs, IBANs, sensitive files, DB connections, internal IPs, customer IDs
-- Block (deny): API keys, credentials, private keys, prompt injection, shell obfuscation, path traversal, DNS exfiltration, pipe-chain exfiltration, base64 payloads, passport/licence numbers, Unicode bypass
+**Bash rules** (`filter_rules.json`) — 332 cases:
+- Allow: no-network commands, trusted endpoints (localhost, GitHub, PyPI, npm, GitLab, rubygems, crates.io, bitbucket, pkg.go.dev)
+- Warn (ask): untrusted network endpoints (curl, wget, httpie, httpx, axios, urllib, aiohttp, fetch, rsync, telnet, socat, nmap, AI SDKs), employee IDs, IBANs, sensitive files, DB connections (postgres, mysql, mongodb, redis, JDBC, AMQP, ADO.NET, DSN, Data Source, cockroachdb, couchdb, mariadb), internal IPs (IPv4, IPv6 ULA/link-local, .local/.lan/.corp/.internal/.intranet/.private suffixes), customer/contract IDs
+- Block (deny): API keys (Anthropic, OpenAI, AWS, GitHub PAT/OAuth, Slack, Stripe live/test/restricted, Google API/OAuth/client ID/client secret, SendGrid, Twilio SID/key, GitLab PAT/runner/OAuth, Discord, Telegram, npm, PyPI, Hugging Face, DigitalOcean, Heroku, Vault, JWT), private keys (RSA, EC, DSA, OPENSSH, generic), hardcoded passwords, prompt injection (ignore instructions, role reassignment, pretend, DAN mode, do anything now, sudo/admin mode, new instructions, no restrictions, jailbreak, XML tag injection, system prompt override, forget/bypass/override instructions), shell obfuscation (eval with string/variable/network tool, hex/octal escapes, /dev/tcp, /dev/udp, exec FD, source stdin/process substitution, IFS, consecutive hex), path traversal (3+ levels, sensitive file, /etc/, URL-encoded, double-encoded, mixed ..%2f, UTF-8 overlong, Windows backslash), DNS exfiltration (dig/nslookup/host with subst/backtick, pipe to DNS, dig +short, dig TXT, resolvectl), pipe-chain exfiltration (file read to network, reverse shell, mkfifo, compress-and-pipe, redirect to /dev/tcp+udp, encrypt-and-pipe, mail/sendmail, socat), base64 (CLI tool, pipe, Python encode/decode, JS atob/btoa, Node Buffer.from, long strings, echo-pipe patterns), passport/licence numbers (passport number/value/num/no, driver licence/license, DL, national ID), Unicode/homoglyph bypass (Cyrillic, zero-width)
+- Edge values: boundary-length keys, minimum/maximum digit counts, false positives for below-minimum lengths, non-matching prefixes
 
-**Write/Edit rules** (`filter_rules_write.json`) — 16 cases:
-- Block: API keys, private keys, passwords, DB URIs, SSNs, credit cards, internal IPs in file content
-- Allow: normal code and config without secrets
+**Write/Edit rules** (`filter_rules_write.json`) — 89 cases:
+- Block: API keys (Anthropic, OpenAI, GitHub PAT/OAuth, Slack, Stripe live/restricted, Google API/OAuth/client secret, SendGrid, Twilio, GitLab, npm, PyPI, HuggingFace, DigitalOcean, JWT, Telegram), private keys (RSA, EC, DSA, OPENSSH, generic), passwords (password/passwd/secret, Vault token, Heroku key, boundary 4-char minimum), DB URIs (postgres, mysql, mongodb, redis, JDBC, ADO.NET, AMQP, Data Source), SSNs (raw, assignment, social_security_number), credit cards (Visa, Mastercard, Amex, Discover, assignment patterns), internal IPs (10.x, 172.16.x, 192.168.x)
+- Allow: normal code, config, JSON, HTML, SQL, imports, safe edits, below-minimum passwords
 
-**Read rules** (`filter_rules_read.json`) — 20 cases:
-- Block: /etc/passwd, /etc/shadow, .ssh/, .env, .aws/credentials, .kube/config, .bash_history, .npmrc, .docker/config.json, .gnupg/, .netrc, wallet.dat, master.key, .vault-token
-- Allow: normal source files, README, /etc/hostname
+**Read rules** (`filter_rules_read.json`) — 63 cases:
+- Block: system auth (/etc/passwd, /etc/shadow, /etc/sudoers), SSH (id_rsa, id_ecdsa, id_dsa, config, authorized_keys, known_hosts, host keys), .env variants (.env, .env.production, .env.local, .env.staging, .env.development), cloud credentials (AWS, GCloud, Azure, Terraform), Kubernetes (kube config, PKI), history files (bash, zsh, python, mysql, psql), credential dotfiles (.netrc, .pgpass, .my.cnf), package manager auth (.npmrc, .pypirc), Docker, GPG, wallet.dat, Rails (master.key, credentials.yml.enc), Vault token
+- Allow: normal source files, README, /etc/hostname, /etc/hosts, /etc/os-release, /etc/resolv.conf, config files, .gitignore, Dockerfile, .envrc, .env_template, public keys
 
 ### test_nlp_filter.py
 

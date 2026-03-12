@@ -102,8 +102,8 @@ python -m spacy download en_core_web_sm
 ### 4. Verify installation
 
 ```bash
-python3 tests/run_all.py                # Run all 248 tests across 6 suites
-python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read (162 cases)
+python3 tests/run_all.py                # Run all 604 tests across 6 suites
+python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read (518 cases)
 python3 tests/test_nlp_filter.py        # NLP filter: PII + plugins (39 cases)
 python3 tests/test_output_sanitizer.py  # Output sanitizer (19 cases)
 python3 tests/test_rate_limiter.py      # Rate limiter (9 cases)

@@ -33,6 +33,8 @@ def log_event(
     matched: list[str],
     command: str,
     session_id: str = "",
+    override_name: str = "",
+    override_source: str = "",
 ) -> None:
     """Append a JSONL audit entry to audit.log.
 
@@ -40,10 +42,12 @@ def log_event(
         log_dir: Directory where audit.log is written.
         filter_name: Which filter triggered (regex_filter, llm_filter).
         rule_name: Name of the rule or plugin that matched.
-        action: The decision (deny, ask).
+        action: The decision (deny, ask, override_allow).
         matched: List of matched pattern labels or entity descriptions.
         command: The original command (hashed, not stored in full).
         session_id: Claude Code session ID for correlation.
+        override_name: Name of the override that allowed the action.
+        override_source: Source layer of the override (user, project).
     """
     log_path = os.environ.get(
         "HOOK_AUDIT_LOG",
@@ -60,6 +64,11 @@ def log_event(
         "command_preview": _redact_preview(command, matched),
         "session_id": session_id,
     }
+
+    if override_name:
+        entry["override_name"] = override_name
+    if override_source:
+        entry["override_source"] = override_source
 
     try:
         with open(log_path, "a") as f:

@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /etc/claude-code/hooks/regex_filter.py /etc/claude-code/hooks/managed_rules.json",
+            "timeout": 10,
+            "statusMessage": "Checking managed security policy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /etc/claude-code/hooks/regex_filter.py /etc/claude-code/hooks/managed_rules_write.json",
+            "timeout": 10,
+            "statusMessage": "Checking managed write policy..."
+          }
+        ]
+      }
+    ]
+  }
+}

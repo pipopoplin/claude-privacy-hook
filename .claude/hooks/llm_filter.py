@@ -13,81 +13,14 @@ Plugins (selected via config, first available wins):
   presidio   — Microsoft Presidio, ~0.4ms, known PII types
   distilbert — DistilBERT/NerGuard, ~25ms, best accuracy
   spacy      — spaCy sm + regex, ~3ms, edge/low-resource
+
+For better performance, use llm_client.py which connects to a persistent
+background service (llm_service.py) that keeps plugins loaded in memory.
 """
 
-import importlib
 import json
 import os
 import sys
-import unicodedata
-
-
-# Homoglyph map: visually similar Unicode chars -> ASCII equivalents
-HOMOGLYPH_MAP = {
-    '\u0430': 'a', '\u0435': 'e', '\u043e': 'o', '\u0440': 'p',
-    '\u0441': 'c', '\u0443': 'y', '\u0445': 'x', '\u0456': 'i',
-    '\u03bf': 'o', '\u03b1': 'a', '\u03b9': 'i', '\u03ba': 'k',
-    '\u03bd': 'v', '\u03c1': 'p',
-    '\u0391': 'A', '\u0392': 'B', '\u0395': 'E', '\u0397': 'H',
-    '\u0399': 'I', '\u039a': 'K', '\u039c': 'M', '\u039d': 'N',
-    '\u039f': 'O', '\u03a1': 'P', '\u03a4': 'T', '\u03a5': 'Y',
-    '\u03a7': 'X',
-}
-ZERO_WIDTH_CHARS = {'\u200b', '\u200c', '\u200d', '\ufeff', '\u00ad', '\u2060'}
-_HOMOGLYPH_TRANS = str.maketrans(HOMOGLYPH_MAP)
-
-
-def normalize_unicode(text: str) -> str:
-    """Normalize Unicode to defeat homoglyph and zero-width bypasses."""
-    text = unicodedata.normalize("NFKC", text)
-    text = ''.join(c for c in text if c not in ZERO_WIDTH_CHARS)
-    text = text.translate(_HOMOGLYPH_TRANS)
-    return text
-
-def load_plugin_registry(hooks_dir: str) -> dict:
-    """Load plugin registry from plugins/plugins.json."""
-    registry_path = os.path.join(hooks_dir, "plugins", "plugins.json")
-    if not os.path.isfile(registry_path):
-        return {}
-    with open(registry_path) as f:
-        data = json.load(f)
-    return {
-        name: (info["module"], info["class"])
-        for name, info in data.get("plugins", {}).items()
-    }
-
-
-def load_config(path: str) -> dict:
-    with open(path) as f:
-        return json.load(f)
-
-
-def resolve_field(data: dict, field: str) -> str:
-    current = data
-    for part in field.split("."):
-        if isinstance(current, dict) and part in current:
-            current = current[part]
-        else:
-            return ""
-    return str(current) if current is not None else ""
-
-
-def load_plugin(name: str, plugin_config: dict, registry: dict):
-    """Load and configure a plugin by name. Returns None if unavailable."""
-    if name not in registry:
-        return None
-
-    module_path, class_name = registry[name]
-    try:
-        module = importlib.import_module(module_path)
-        cls = getattr(module, class_name)
-        instance = cls()
-        instance.configure(plugin_config.get(name, {}))
-        if not instance.is_available():
-            return None
-        return instance
-    except Exception:
-        return None
 
 
 def main():
@@ -105,8 +38,10 @@ def main():
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
 
-    config = load_config(config_path)
-    registry = load_plugin_registry(hooks_dir)
+    from llm_service import load_all_plugins, load_plugin_registry, run_detection
+
+    with open(config_path) as f:
+        config = json.load(f)
 
     if not config.get("enabled", True):
         sys.exit(0)
@@ -116,110 +51,13 @@ def main():
     except json.JSONDecodeError:
         sys.exit(0)
 
-    field = config.get("field", "tool_input.command")
-    text = resolve_field(hook_input, field)
-    if not text:
-        sys.exit(0)
-    text = normalize_unicode(text)
+    registry = load_plugin_registry(hooks_dir)
+    plugins = load_all_plugins(config, registry)
 
-    priority = config.get("plugin_priority", ["presidio", "spacy", "distilbert"])
-    supplementary = config.get("supplementary_plugins", ["prompt_injection"])
-    plugin_configs = config.get("plugins", {})
-    min_confidence = config.get("min_confidence", 0.7)
-    action = config.get("action", "deny")
-    entity_types = config.get("entity_types")
+    result = run_detection(hook_input, config, hooks_dir, plugins)
 
-    all_findings = []
-    reporting_plugin = None
-
-    # Find first available PII plugin and run detection
-    for plugin_name in priority:
-        if plugin_name in supplementary:
-            continue
-        if not plugin_configs.get(plugin_name, {}).get("enabled", True):
-            continue
-
-        plugin = load_plugin(plugin_name, plugin_configs, registry)
-        if plugin is None:
-            continue
-
-        try:
-            detections = plugin.detect(text, entity_types)
-        except Exception as e:
-            print(f"Plugin {plugin_name} error: {e}", file=sys.stderr)
-            continue
-
-        findings = [d for d in detections if d.score >= min_confidence]
-        if findings:
-            all_findings.extend(findings)
-            reporting_plugin = plugin
-        break  # first_available: only try the first working PII plugin
-
-    # Run supplementary plugins (e.g. prompt injection) independently
-    for plugin_name in supplementary:
-        if not plugin_configs.get(plugin_name, {}).get("enabled", True):
-            continue
-
-        plugin = load_plugin(plugin_name, plugin_configs, registry)
-        if plugin is None:
-            continue
-
-        try:
-            detections = plugin.detect(text, entity_types)
-        except Exception as e:
-            print(f"Plugin {plugin_name} error: {e}", file=sys.stderr)
-            continue
-
-        findings = [d for d in detections if d.score >= min_confidence]
-        if findings:
-            all_findings.extend(findings)
-            if reporting_plugin is None:
-                reporting_plugin = plugin
-
-    if not all_findings:
-        sys.exit(0)
-
-    # Audit log the blocked event
-    try:
-        from audit_logger import log_event
-        command = resolve_field(hook_input, "tool_input.command")
-        log_event(
-            log_dir=hooks_dir,
-            filter_name="llm_filter",
-            rule_name=reporting_plugin.name if reporting_plugin else "unknown",
-            action=action,
-            matched=[f"{d.entity_type}: {d.text}" for d in all_findings],
-            command=command,
-            session_id=hook_input.get("session_id", ""),
-        )
-    except Exception:
-        pass  # Audit logging must never block the filter
-
-    findings_text = "\n".join(
-        f"  - {d.entity_type}: '{d.text}' (confidence: {d.score:.2f})"
-        for d in all_findings
-    )
-
-    hook_event = hook_input.get("hook_event_name", "PreToolUse")
-
-    if hook_event == "PreToolUse":
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny" if action == "deny" else "ask",
-                "permissionDecisionReason": (
-                    f"Sensitive content detected by {reporting_plugin.name} ({reporting_plugin.tier}):\n"
-                    f"{findings_text}"
-                ),
-            }
-        }
-    else:
-        output = {
-            "decision": "block" if action == "deny" else action,
-            "reason": f"Sensitive content detected by {reporting_plugin.name}:\n{findings_text}",
-        }
-
-    json.dump(output, sys.stdout)
+    if result:
+        json.dump(result, sys.stdout)
     sys.exit(0)
 
 

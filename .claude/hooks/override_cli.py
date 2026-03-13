@@ -67,7 +67,7 @@ def cmd_add(args: argparse.Namespace) -> int:
     if args.rule not in FREE_TIER_RULES:
         print(
             f"Rule '{args.rule}' is not available in the free tier.\n"
-            f"Upgrade to Pro ($5/mo) for overrides on all rules: https://claude-privacy-hook.dev/pro",
+            f"Upgrade to Pro for overrides on all rules: https://claude-privacy-hook.dev/pro",
             file=sys.stderr,
         )
         return 1

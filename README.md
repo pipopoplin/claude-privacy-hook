@@ -311,8 +311,8 @@ See the full [Benchmark guide](benchmarks/README.md) for methodology, all scenar
 
 ## Free vs Pro
 
-| Feature | Free (MIT) | Pro ($5/mo/seat) |
-|---------|-----------|-------------------|
+| Feature | Free (MIT) | Pro |
+|---------|-----------|------------------|
 | Regex-based PII detection (18 rules) | ✅ | ✅ |
 | Write/Edit content filtering | ✅ | ✅ |
 | Read path protection | ✅ | ✅ |

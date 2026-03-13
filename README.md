@@ -220,8 +220,8 @@ All 40 filters are implemented across the four security layers.
 | 8 | Trusted endpoint allowlist | L1 regex | 🔐 | NET | NET-13 | — | 🔴 Critical |   |
 | 9 | Person names (NER) | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
 | 10 | Email addresses | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
-| 11 | SSN / National ID | L2 NLP | 🛡️ | PRI | PRI-03 | GDPR Art.9 | 🔴 Critical |  f  |
-| 12 | Credit card numbers | L2 NLP | 🛡️ | DAT | DAT-02 | PCI-DSS Req.3 | 🔴 Critical |  f  |
+| 11 | SSN / National ID | L1 regex | 🛡️ | PRI | PRI-03 | GDPR Art.9 | 🔴 Critical |  f  |
+| 12 | Credit card numbers | L1 regex | 🛡️ | DAT | DAT-02 | PCI-DSS Req.3 | 🔴 Critical |  f  |
 | 13 | Phone numbers | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
 | 14 | IP addresses | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
 | 15 | ORG / GPE / NORP entities | L2 NLP | 🛡️ | PRI | PRI-02 | GDPR Art.4 | 🟠 High |   |

@@ -183,6 +183,45 @@
       ]
     },
     {
+      "name": "block_ssn_national_id",
+      "description": "Block commands containing Social Security Numbers or National ID numbers",
+      "field": "tool_input.command",
+      "action": "deny",
+      "overridable": false,
+      "match": "any",
+      "message": "Social Security Number or National ID detected. Remove PII before running.",
+      "patterns": [
+        {"pattern": "\\b\\d{3}-\\d{2}-\\d{4}\\b", "label": "SSN (NNN-NN-NNNN format)"},
+        {"pattern": "\\b\\d{3}\\s\\d{2}\\s\\d{4}\\b", "label": "SSN (NNN NN NNNN format)"},
+        {"pattern": "\\b\\d{9}\\b(?=.*\\b(ssn|social|security)\\b)", "label": "SSN (9 consecutive digits with SSN context)"},
+        {"pattern": "\\bSSN\\s*[:=]\\s*['\"]?\\d{3}[- ]?\\d{2}[- ]?\\d{4}", "label": "SSN assignment"},
+        {"pattern": "\\bsocial[_\\s-]?security[_\\s-]?(number|num|no|#)?\\s*[:=]\\s*['\"]?\\d{3}", "label": "Social security number assignment"},
+        {"pattern": "\\bnational[_-]?id\\s*[:=]\\s*['\"]?[A-Z0-9]{5,15}", "label": "National ID assignment"},
+        {"pattern": "\\bNIN\\s*[:=]\\s*['\"]?[A-Z]{2}\\d{6}[A-Z]", "label": "UK National Insurance Number"},
+        {"pattern": "\\b[A-Z]{2}\\d{6}[A-Z]\\b", "label": "UK NIN pattern (AB123456C)"}
+      ]
+    },
+    {
+      "name": "block_credit_card_numbers",
+      "description": "Block commands containing credit card numbers",
+      "field": "tool_input.command",
+      "action": "deny",
+      "overridable": false,
+      "match": "any",
+      "message": "Credit card number detected. Remove payment card data before running.",
+      "patterns": [
+        {"pattern": "\\b4[0-9]{3}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}\\b", "label": "Visa card number"},
+        {"pattern": "\\b5[1-5][0-9]{2}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}\\b", "label": "Mastercard number"},
+        {"pattern": "\\b3[47][0-9]{2}[- ]?[0-9]{6}[- ]?[0-9]{5}\\b", "label": "Amex card number"},
+        {"pattern": "\\b6(?:011|5[0-9]{2})[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}\\b", "label": "Discover card number"},
+        {"pattern": "\\b3(?:0[0-5]|[68][0-9])[0-9]{11}\\b", "label": "Diners Club card number"},
+        {"pattern": "\\b(?:2131|1800|35\\d{3})[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}\\b", "label": "JCB card number"},
+        {"pattern": "\\bcredit[_\\s-]?card[_\\s-]?(number|num|no|#)?\\s*[:=]\\s*['\"]?\\d{4}", "label": "Credit card assignment"},
+        {"pattern": "\\bcard[_\\s-]?number\\s*[:=]\\s*['\"]?\\d{4}", "label": "Card number assignment"},
+        {"pattern": "\\bPAN\\s*[:=]\\s*['\"]?\\d{13,19}", "label": "PAN (Primary Account Number) assignment"}
+      ]
+    },
+    {
       "name": "block_employee_hr_ids",
       "description": "Block commands containing employee IDs, HR numbers, or personnel identifiers",
       "field": "tool_input.command",

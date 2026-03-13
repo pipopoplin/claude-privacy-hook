@@ -27,12 +27,12 @@
 [x] Ensure free tier is genuinely useful (all 16 regex rules, output redaction, rate limiting)
 
 ## 4. Licensing Structure — see also [EnforcementModel.md](EnforcementModel.md)
-[ ] Choose license for free tier (Apache 2.0 or MIT — open source, builds trust)
-[ ] Choose license for paid tier (BSL 1.1 or proprietary)
-[~] Decide: dual-repo vs mono-repo with gated features (recommendation: hybrid in EnforcementModel.md)
-[~] Define pricing tiers
+[x] Choose license for free tier: MIT (open source, builds trust)
+[x] Choose license for paid tier: BSL 1.1
+[x] Decide: dual-repo (claude-privacy-hook MIT + claude-privacy-hook-pro BSL 1.1)
+[x] Define pricing tiers
     - Free: open source, no account needed
-    - Team: per-seat, monthly or annual (requires login + token)
+    - Paid: $5/month per seat (requires login + token)
 [ ] Draft license text for both tiers
 [ ] Legal review of dual-license compatibility
 [ ] Check dependency license compatibility (spaCy=MIT, Presidio=MIT, transformers=Apache 2.0)
@@ -57,12 +57,11 @@
 [x] Define license server endpoints (login, heartbeat, logout, status)
 
 ## 7. Repository & Distribution — see also [EnforcementModel.md](EnforcementModel.md)
-[ ] Decide repo structure
-    - Option A: Single repo, paid features behind license key
-    - Option B: Two repos (claude-privacy-hook-community + claude-privacy-hook-pro)
-    - Option C: Single repo, paid features in separate package/directory
-[ ] Set up free tier as public open-source repo
-[ ] Set up paid tier distribution (private repo, license server, or package registry)
+[x] Repo structure decided: dual-repo
+    - claude-privacy-hook (MIT) — free tier, public open-source
+    - claude-privacy-hook-pro (BSL 1.1) — paid tier
+[x] Set up free tier as public open-source repo
+[x] Set up paid tier distribution (separate repo, BSL 1.1)
 [ ] Update .gitignore for any paid-tier artifacts
 [ ] Update install scripts to handle free vs paid installation
 
@@ -95,28 +94,196 @@
 [x] Licensed Work: claude-privacy-hook v0.0.1-alpha
 [x] Change Date: 2030-03-10 (converts to Apache 2.0)
 [ ] Update version string from v0.0.1-alpha
-[ ] Decide if BSL 1.1 stays for paid tier or switches to proprietary
+[x] BSL 1.1 confirmed for paid tier (claude-privacy-hook-pro)
 
-## 12. Open Questions
+## 12. Code Protection Strategy
+
+### Layer 1: Distribution Protection — DECIDED
+[x] A3: Compiled distribution (Cython/Nuitka → .so/.pyd binaries)
+    - Pro repo source code is never distributed
+    - Users receive compiled binaries only
+    - Platform-specific builds required (Linux, macOS, Windows)
+    [ ] Choose compilation tool (Cython vs Nuitka)
+    [ ] Set up CI/CD pipeline for multi-platform builds
+    [ ] Define distribution channel (private PyPI, direct download, or installer)
+
+### Layer 2 + 3: Runtime Protection & Self-Validation — DECIDED
+    Core principle: EVERYTHING runs locally. Server is only for token issuance.
+    Software validates its own integrity and reports status back to server.
+[x] Choose self-validation strategy: S2 (cross-module validation) for launch
+    [ ] Implement cross-module hashing in compiled binaries
+    [ ] Define module dependency map (which modules validate which)
+    [ ] Implement heartbeat integrity report (POST to server)
+    [ ] Implement server-side manifest comparison + response actions
+    [ ] Define version upgrade strategy (atomic module updates)
+[ ] S3 (runtime behavior attestation) — BACKLOG, future enhancement
+
+### Layer 4: Legal Protection — ALL THREE
+[ ] D1: BSL 1.1 — already in place for pro repo
+    [ ] Draft final BSL 1.1 license text for pro tier
+    [ ] Legal review of BSL 1.1 + MIT dual-license compatibility
+[ ] D2: Terms of Service
+    [ ] Draft ToS prohibiting redistribution, reverse engineering, token sharing
+    [ ] Account-level ToS acceptance on signup/login
+    [ ] Legal review of ToS
+[ ] D3: Audit trail for leak tracing
+    [ ] Token embeds user_id + org_id in every audit log entry
+    [ ] If leaked compiled code surfaces, token trace identifies source
+    [ ] Define leak response procedure
+
+## 13. Runtime Protection & Self-Validation (Layer 2+3)
+
+### Core Architecture
+    - Both free and paid tiers run 100% locally on the user's machine
+    - Server contact is ONLY for: (1) login → get token, (2) heartbeat → renew token + report
+    - No user code ever leaves the machine
+    - Token valid 3h, hardware-bound (machine_id)
+
+### Self-Validation Concept
+    The compiled pro binaries validate their own integrity at runtime and report
+    status back to the server on heartbeat. This merges runtime protection (Layer 2)
+    and tamper detection (Layer 3) into one unified flow.
+
+    Flow:
+    1. User logs in → server issues Ed25519-signed token (3h, machine-bound)
+    2. On each pro hook invocation:
+       a. Module reads token from ~/.claude/hooks/license_token
+       b. Verifies Ed25519 signature + expiry + machine_id locally (no server call)
+       c. If valid → pro features execute
+       d. If invalid/missing/expired → degrade to free tier (never hard-fail)
+    3. Background heartbeat (every 10min):
+       a. Pro binaries compute their own integrity hashes (SHA-256)
+       b. Heartbeat POST sends: token, machine_id, version, integrity_report
+       c. Server compares hashes against known-good manifest for that version
+       d. Server responds with: renewed token (or revocation)
+    4. If heartbeat fails (offline):
+       a. Grace period: token stays valid until 3h expiry
+       b. After expiry without renewal: degrade to free tier
+
+### Self-Validation Options — choose depth:
+
+### Option S1: Binary self-hash (lightweight)
+    Each .so module hashes itself at startup, stores in memory.
+    On heartbeat, all hashes sent to server.
+    Server checks against release manifest.
+
+    Integrity report:
+    {
+      "version": "1.2.0",
+      "modules": {
+        "llm_filter_pro.so": "sha256:a1b2c3...",
+        "override_resolver_pro.so": "sha256:d4e5f6...",
+        "audit_logger_pro.so": "sha256:g7h8i9..."
+      },
+      "machine_id": "hmac:...",
+      "timestamp": "2026-03-13T14:00:00Z"
+    }
+
+    + Simple, fast (~1ms total for all modules)
+    + Detects file replacement / patching of compiled binaries
+    - Module hashing itself can be patched out (attacker replaces binary + fakes hash)
+    - Only checks at heartbeat intervals (10min gap)
+
+### Option S2: Cross-module validation (strong)
+    Each .so module hashes OTHER modules, not just itself.
+    Module A hashes B and C, module B hashes A and C, etc.
+    No single module can be replaced without others detecting it.
+
+    Integrity report:
+    {
+      "version": "1.2.0",
+      "reporters": {
+        "llm_filter_pro.so": {
+          "self": "sha256:a1b2c3...",
+          "observed": {
+            "override_resolver_pro.so": "sha256:d4e5f6...",
+            "audit_logger_pro.so": "sha256:g7h8i9..."
+          }
+        },
+        "override_resolver_pro.so": {
+          "self": "sha256:d4e5f6...",
+          "observed": {
+            "llm_filter_pro.so": "sha256:a1b2c3...",
+            "audit_logger_pro.so": "sha256:g7h8i9..."
+          }
+        }
+      },
+      "machine_id": "hmac:...",
+      "timestamp": "2026-03-13T14:00:00Z"
+    }
+
+    + Strong: must replace ALL modules simultaneously to avoid detection
+    + Cross-validation creates a web of trust between compiled binaries
+    + Server can detect inconsistencies (A says B is X, but B says B is Y)
+    - More complex to implement and maintain
+    - All modules must know paths to all other modules
+    - Version upgrades must update all modules atomically
+
+### Option S3: Runtime behavior attestation (strongest)
+    Beyond file hashes — modules report runtime behavior signatures.
+    e.g., "I processed 47 requests, blocked 3, detected 12 PII entities"
+    Server builds a behavioral profile per installation.
+    Anomalies (e.g., 0 blocks ever, or detection counts don't match usage)
+    suggest the module is stubbed out or bypassed.
+
+    Integrity report:
+    {
+      "version": "1.2.0",
+      "module_hashes": { ... },
+      "behavior": {
+        "requests_processed": 47,
+        "detections": {"PII": 12, "credentials": 3, "prompt_injection": 0},
+        "blocks": 3,
+        "degradations": 0,
+        "avg_latency_ms": 4.2
+      },
+      "machine_id": "hmac:...",
+      "timestamp": "2026-03-13T14:00:00Z"
+    }
+
+    + Detects logical bypasses (binary replaced with no-op that returns "clean")
+    + Server can flag statistically impossible behavior (never blocks anything)
+    + Valuable analytics data (real-world detection rates per customer)
+    + Can feed into conversion messaging ("Pro caught 342 PII leaks this month")
+    - Most complex to implement
+    - Privacy consideration: behavioral data sent to server (anonymized, no code content)
+    - Needs baseline model to distinguish "quiet repo" from "bypassed module"
+    - False positives possible (low-activity user flagged as tampered)
+
+### Server-side response actions (all options):
+    On heartbeat response, server can:
+    - RENEW: issue fresh 3h token (normal case)
+    - WARN: token renewed but integrity mismatch flagged (soft alert)
+    - REVOKE: refuse renewal, token expires in ≤3h, degrade to free tier
+    - SUSPEND: immediate revocation + account flag (severe tampering)
+
+### Decision:
+    S2 (cross-module validation) for launch — cross-module trust, much harder to defeat
+    S3 (runtime behavior attestation) — BACKLOG, future enhancement
+
+## 15. Open Questions
+
+### Decisions made
+    - Pricing: Free + Paid ($5/month per seat)
+    - Repos: dual-repo (claude-privacy-hook MIT + claude-privacy-hook-pro BSL 1.1)
+    - Free tier: all L1 regex only (9 filters incl. #11 SSN + #12 Credit cards via regex)
+    - Paid tier: all NLP features (primary paywall)
+    - Distribution: compiled binaries (Cython/Nuitka), no source shipped
+    - Runtime: S2 cross-module validation, local execution, server for tokens only
+    - Legal: BSL 1.1 + ToS + audit trail
+    - Old docs (EnforcementModel, TokenManagement, etc.) are obsolete — new strategy from scratch
 
 ### Blocking — must resolve before code separation
-[ ] Free-tier NLP conflict: Filters #11 (SSN) and #12 (Credit cards) are marked free but are L2 NLP.
-    Free tier is defined as regex_filter only (§3). Options:
-    - (a) Add regex fallback patterns for SSN/credit card to free tier (no NLP dependency)
-    - (b) Include limited NLP path for those two filters in free tier
-    - (c) Move #11 and #12 out of free tier (only 7 free filters remain)
-[ ] Repo structure decision (§7): mono-repo with gated features vs dual-repo vs hybrid?
-    Blocks all code separation work.
-[ ] Referenced docs removed: EnforcementModel.md, TokenManagement.md, CustomerProfiles.md,
-    UseCaseRanking.md, EnforcementActivityDiagram.md were in Archive.zip (now deleted).
-    - Are the decisions in those docs still valid, or do they need to be re-documented?
-    - §5 and §6 are marked [x] done — should they stay done or reopen?
 [ ] SeparationPlan.md is empty — needs a code separation plan before §8 can start.
+[ ] Override system scope: free tier = personal overrides only, paid tier = team + managed overrides?
+    Needs decision before code separation can assign override features to tiers.
 
 ### Open — important but not blocking
-[ ] Should the NLP plugins be the primary paywall? (strongest conversion trigger)
-[ ] Should override system be free for personal use, paid for team use?
+[x] NLP plugins are the primary paywall — all NLP features are paid tier
+    (except limited NLP preview for #11 SSN + #12 Credit cards in free tier)
 [ ] How to handle community contributions to paid features?
-[ ] Should managed layer be a separate enterprise add-on?
+[ ] Managed layer: include in paid tier or treat as separate add-on at higher price?
 [ ] What analytics/telemetry (if any) to measure conversion?
-[ ] How to prevent paid features from being trivially extracted from mono-repo?
+
+### Backlog
+[ ] S3: Runtime behavior attestation (future enhancement to self-validation)

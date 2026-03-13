@@ -1,0 +1,35 @@
+{
+  "$schema": "See docs/filter_rules_schema.md for documentation",
+  "rules": [
+    {
+      "name": "block_sensitive_file_read",
+      "description": "Block Read tool from accessing sensitive system and credential files",
+      "field": "tool_input.file_path",
+      "tool_name": "Read",
+      "action": "deny",
+      "overridable": true,
+      "match": "any",
+      "message": "Access to sensitive file blocked. This file may contain credentials or system secrets.",
+      "patterns": [
+        {"pattern": "/etc/(passwd|shadow|sudoers)$", "label": "System auth files"},
+        {"pattern": "/etc/ssh/ssh_host_[a-z_]+key$", "label": "SSH host keys"},
+        {"pattern": "\\.ssh/(id_[a-z]+|authorized_keys|known_hosts|config)$", "label": "User SSH files"},
+        {"pattern": "\\.gnupg/", "label": "GPG keyring"},
+        {"pattern": "\\.(bash_history|zsh_history|python_history|mysql_history|psql_history)$", "label": "Shell/tool history files"},
+        {"pattern": "\\.(netrc|pgpass|my\\.cnf)$", "label": "Credential dotfiles (.netrc, .pgpass, .my.cnf)"},
+        {"pattern": "\\.env(\\.local|\\.production|\\.staging|\\.development)?$", "label": "Environment files (.env)"},
+        {"pattern": "\\.aws/(credentials|config)$", "label": "AWS credentials file"},
+        {"pattern": "\\.docker/config\\.json$", "label": "Docker credentials"},
+        {"pattern": "\\.kube/config$", "label": "Kubernetes config"},
+        {"pattern": "\\.(npmrc|pypirc)$", "label": "Package manager auth (.npmrc, .pypirc)"},
+        {"pattern": "wallet\\.dat$", "label": "Crypto wallet file"},
+        {"pattern": "(master\\.key|credentials\\.yml\\.enc)$", "label": "Rails master key / encrypted credentials"},
+        {"pattern": "\\.gcloud/credentials\\.db$", "label": "GCloud credentials"},
+        {"pattern": "\\.azure/(accessTokens\\.json|azureProfile\\.json)$", "label": "Azure credentials"},
+        {"pattern": "\\.terraform\\.d/credentials\\.tfrc\\.json$", "label": "Terraform credentials"},
+        {"pattern": "/etc/kubernetes/pki/", "label": "Kubernetes PKI certificates"},
+        {"pattern": "\\.vault-token$", "label": "HashiCorp Vault token file"}
+      ]
+    }
+  ]
+}

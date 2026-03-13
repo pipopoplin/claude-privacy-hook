@@ -8,12 +8,8 @@ Performance benchmarks for every component of the Claude Privacy Hook system. Ea
 # Run all benchmarks (~2-3 minutes)
 python3 benchmarks/run_all.py
 
-# Run all except slow NLP subprocess benchmarks (~30 seconds)
-python3 benchmarks/run_all.py --fast
-
 # Run a single benchmark
 python3 benchmarks/bench_regex_filter.py
-python3 benchmarks/bench_nlp_filter.py
 python3 benchmarks/bench_output_sanitizer.py
 python3 benchmarks/bench_rate_limiter.py
 python3 benchmarks/bench_overrides.py
@@ -41,46 +37,11 @@ Benchmarks `regex_filter.py` with all three rule sets (Bash, Write, Read).
 **In-process scenarios** (5,000 iterations each):
 Same scenarios plus a long safe command (repeated `git status && npm test`), benchmarking `evaluate_rules()` directly without subprocess overhead.
 
-**Key metric**: Bash rules are the slowest (~0.07ms) because they have 16 rules and ~160 patterns. Read rules are the fastest (~0.006ms) with only 1 rule.
+**Key metric**: Bash rules are the slowest (~0.07ms) because they have 18 rules and ~180 patterns. Read rules are the fastest (~0.006ms) with only 1 rule.
 
 ---
 
-### 2. NLP Filter (`bench_nlp_filter.py`)
-
-Benchmarks the NLP detection pipeline in three modes.
-
-**Subprocess: `llm_filter.py` (standalone, cold)** — 20 iterations each:
-Each invocation cold-loads all plugins. Measures worst-case latency (~700ms+).
-
-**Subprocess: `llm_client.py` (persistent service, warm)** — 20 iterations each:
-Uses the persistent TCP service that keeps plugins pre-loaded. Measures real-world latency (~30ms).
-
-| Scenario | What it tests |
-|----------|--------------|
-| Safe command (allow) | No detection fires |
-| PII detection (SSN+email) | PII plugin match |
-| Prompt injection | Prompt injection plugin match |
-| High-entropy secret | Entropy detector plugin match |
-| Semantic intent (exfiltrate) | Semantic intent plugin match |
-| Sensitive category (medical) | Sensitive categories plugin match |
-
-**In-process: individual plugins** (5,000 iterations each):
-Benchmarks each plugin's `detect()` method directly:
-- `PromptInjectionPlugin` — keyword/pattern matching
-- `SensitiveCategoriesPlugin` — category keyword detection
-- `EntropyDetectorPlugin` — Shannon entropy calculation
-- `SemanticIntentPlugin` — intent classification
-
-Optional PII plugins (if installed):
-- `SpaCyPlugin` (500 iterations) — spaCy NER model
-- `PresidioPlugin` (500 iterations) — Presidio analyzer
-- `DistilBERTPlugin` (100 iterations) — transformer inference
-
-**Key metric**: The persistent NLP service reduces cold start from ~730ms to ~31ms (23x improvement). Supplementary plugins run at 100K-4.6M ops/s with no external dependencies.
-
----
-
-### 3. Output Sanitizer (`bench_output_sanitizer.py`)
+### 2. Output Sanitizer (`bench_output_sanitizer.py`)
 
 Benchmarks `output_sanitizer.py` (PostToolUse hook) redaction performance.
 
@@ -103,7 +64,7 @@ Same scenarios, benchmarking `redact_text()` with pre-compiled regex patterns.
 
 ---
 
-### 4. Rate Limiter (`bench_rate_limiter.py`)
+### 3. Rate Limiter (`bench_rate_limiter.py`)
 
 Benchmarks `rate_limiter.py` with varying audit log sizes.
 
@@ -117,9 +78,9 @@ Benchmarks pure JSONL parsing and violation counting for the same log sizes.
 
 ---
 
-### 5. Override Resolver (`bench_overrides.py`)
+### 4. Override Resolver (`bench_overrides.py`)
 
-Benchmarks the three-layer override system.
+Benchmarks the two-layer override system.
 
 **`check_override()` scenarios** (10,000 iterations each):
 | Scenario | What it tests |
@@ -133,14 +94,11 @@ Benchmarks the three-layer override system.
 **`load_overrides()` scenarios** (500 iterations):
 File I/O cost of loading and parsing `config_overrides.json` from user and project paths.
 
-**`merge_nlp_overrides()` scenarios** (10,000 iterations):
-Merging NLP-specific override layers (disabled entity types, confidence thresholds).
-
 **Key metric**: `check_override()` with 50 overrides and no match costs ~0.015ms (67K ops/s). Non-overridable early return is essentially free.
 
 ---
 
-### 6. Hook Utils (`bench_hook_utils.py`)
+### 5. Hook Utils (`bench_hook_utils.py`)
 
 Benchmarks shared utility functions from `hook_utils.py`.
 
@@ -168,7 +126,7 @@ Benchmarks shared utility functions from `hook_utils.py`.
 
 ---
 
-### 7. Audit Logger (`bench_audit_logger.py`)
+### 6. Audit Logger (`bench_audit_logger.py`)
 
 Benchmarks `audit_logger.py` JSONL write performance.
 
@@ -207,9 +165,7 @@ Iteration counts are tuned per scenario to balance accuracy against total runtim
 | Level | Typical iterations | Rationale |
 |-------|------------------:|-----------|
 | Subprocess (fast hooks) | 50 | Each takes ~20ms; 50 iterations = ~1s per scenario |
-| Subprocess (NLP cold) | 20 | Each takes ~700ms; 20 iterations = ~14s per scenario |
 | In-process (fast funcs) | 5,000–50,000 | Sub-microsecond calls need high N for stable medians |
-| In-process (NLP plugins) | 100–5,000 | Depends on plugin weight (spaCy vs pure Python) |
 
 ### Environment Factors
 
@@ -217,7 +173,6 @@ Results will vary based on:
 - **CPU speed** — all benchmarks are CPU-bound (no network I/O)
 - **Disk speed** — affects subprocess startup and audit logger writes
 - **Python version** — 3.10+ recommended; regex performance improved in 3.11
-- **Installed NLP backends** — spaCy, Presidio, and DistilBERT benchmarks are skipped if not installed
 - **System load** — run benchmarks on a quiet system for stable results
 
 ## Interpreting Results
@@ -229,17 +184,15 @@ The hook system is designed to add minimal latency to Claude Code tool execution
 | Metric | Target | Why |
 |--------|--------|-----|
 | Regex filter subprocess | <30ms | Dominated by Python startup; the actual rule evaluation takes <0.1ms |
-| NLP service (warm) | <50ms | Persistent service eliminates cold start; network + inference cost |
 | Output sanitizer subprocess | <30ms | Same Python startup; redaction itself is <0.05ms |
 | Rate limiter subprocess | <30ms | JSONL parsing scales linearly; keep audit logs under 1,000 entries |
 | Full Bash pipeline | <100ms | Sum of all PreToolUse hooks; imperceptible to users |
 
 ### When to Investigate
 
-- **Subprocess latency >50ms** for a single hook (excluding NLP cold start) — check system load or Python startup issues
+- **Subprocess latency >50ms** for a single hook — check system load or Python startup issues
 - **In-process regex >1ms** — rule count or pattern complexity may have grown; consider rule ordering
 - **Rate limiter >50ms** — audit log may be too large; consider log rotation
-- **NLP cold start >2s** — spaCy model may be downloading; ensure `en_core_web_sm` is pre-installed
 
 ### Subprocess Overhead
 
@@ -248,17 +201,18 @@ The ~17ms baseline subprocess overhead is the cost of:
 2. Module imports (json, re, os, sys)
 3. Config file loading and JSON parsing
 
-This is fixed overhead per hook invocation and does not scale with rule count or input size. The persistent NLP service (`llm_client.py` + `llm_service.py`) amortizes this by keeping the Python process running.
+This is fixed overhead per hook invocation and does not scale with rule count or input size.
 
 ## File Reference
 
 | File | Component | Subprocess | In-process |
 |------|-----------|:----------:|:----------:|
 | `bench_regex_filter.py` | Regex filter (all 3 rule sets) | 7 scenarios | 8 scenarios |
-| `bench_nlp_filter.py` | NLP filter + plugins | 12 scenarios | 8+ scenarios |
 | `bench_output_sanitizer.py` | Output sanitizer | 8 scenarios | 8 scenarios |
 | `bench_rate_limiter.py` | Rate limiter | 7 scenarios | 6 scenarios |
 | `bench_overrides.py` | Override resolver | — | 12 scenarios |
 | `bench_hook_utils.py` | Shared utilities | — | 12 scenarios |
 | `bench_audit_logger.py` | Audit logger | — | 3 scenarios |
 | `run_all.py` | Runner (all suites) | — | — |
+
+> NLP filter benchmarks are available in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro).

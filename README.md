@@ -25,26 +25,25 @@ AI coding assistants are powerful — but they can accidentally leak API keys, s
 
 - **Zero trust by default** — every action is checked, not just the ones you think of
 - **No workflow disruption** — trusted tools and endpoints are pre-approved; you only get blocked when something is genuinely risky
-- **Defense in depth** — four independent layers so no single bypass compromises everything
+- **Defense in depth** — three independent layers so no single bypass compromises everything
 - **Compliance-ready** — maps to 40 security controls across GDPR, HIPAA, PCI-DSS, and OWASP standards
 - **Fully auditable** — every blocked action is logged with timestamps, patterns matched, and command hashes
 - **No cloud dependency** — everything runs locally on your machine, nothing phones home
 
 ## How It Works
 
-Four independent security layers run on every action:
+Three independent security layers run on every action:
 
 | Layer | What it does | Speed |
 |-------|-------------|-------|
-| **Regex filter** | Pattern-matches 160+ known credential formats, attack signatures, and sensitive data | <1ms |
-| **NLP filter** | Detects PII that patterns can't catch (real names, contextual data) using AI models | ~5ms (service), 3-25ms (cold) |
+| **Regex filter** | Pattern-matches 180+ known credential formats, attack signatures, and sensitive data (18 rules) | <1ms |
 | **Rate limiter** | Escalates when too many suspicious actions happen in a session | <1ms |
 | **Output sanitizer** | Redacts sensitive data from command results after execution | <1ms |
 
 ```
-Bash command → Regex filter (16 rules) → NLP filter (7 plugins) → Rate limiter → Execute
-                                                                                    ↓
-                                                                          Output sanitizer → Result
+Bash command → Regex filter (18 rules) → Rate limiter → Execute
+                                                            ↓
+                                                  Output sanitizer → Result
 
 Write/Edit   → Regex filter (content rules) → Execute
 Read         → Regex filter (path rules)    → Execute
@@ -59,69 +58,17 @@ All blocked events are written to an audit log for review and compliance.
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
 - Python 3.10+ (3.11+ recommended for best regex performance)
 
-### Quick Install (recommended)
-
-The installation scripts create a `claude_privacy_hook_env` virtual environment and install all dependencies:
+### Quick Install
 
 ```bash
 git clone https://github.com/pipopoplin/claude-privacy-hook.git
 cd claude-privacy-hook
-
-# Linux
-chmod +x install.sh
-./install.sh              # All NLP plugins (spaCy + Presidio + DistilBERT)
-./install.sh --core       # Core hooks only (no NLP plugins, zero dependencies)
-./install.sh --spacy      # Core + spaCy only (recommended, lightweight)
-
-# macOS
-chmod +x install_mac.sh
-./install_mac.sh          # Checks Xcode CLT + Homebrew Python, then installs
-
-# Windows
-install.bat               # All NLP plugins
-install.bat --core        # Core hooks only
+./install.sh              # Linux
+./install_mac.sh          # macOS
+install.bat               # Windows
 ```
 
-Flags can be combined: `./install.sh --spacy --presidio`
-
-| Flag | What it installs | Download size |
-|------|-----------------|--------------|
-| `--core` | Core hooks only (stdlib) | None |
-| `--spacy` | spaCy + `en_core_web_sm` model | ~50 MB |
-| `--presidio` | Microsoft Presidio analyzer | ~30 MB |
-| `--distilbert` | Transformers + PyTorch | ~2.8 GB |
-| _(no flags)_ | All of the above | ~3 GB |
-
-The scripts automatically:
-1. Find Python 3.10+ on your system
-2. Create the `claude_privacy_hook_env` virtual environment
-3. Install selected NLP plugins
-4. Verify all components
-5. Run smoke tests on the hook pipeline
-
-After installation, activate the environment:
-
-```bash
-# Linux / macOS
-source claude_privacy_hook_env/bin/activate
-
-# Windows
-claude_privacy_hook_env\Scripts\activate.bat
-```
-
-### Manual Install
-
-If you prefer to manage your own environment:
-
-```bash
-git clone https://github.com/pipopoplin/claude-privacy-hook.git
-cd claude-privacy-hook
-
-python3 -m venv claude_privacy_hook_env
-source claude_privacy_hook_env/bin/activate  # Linux/macOS
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-```
+The install scripts check your Python version and run smoke tests — zero dependencies.
 
 ### Copy Hooks Into Your Project
 
@@ -140,15 +87,14 @@ python3 tests/run_all.py                # Run all 979 tests across 5 suites
 python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read (518 cases)
 python3 tests/test_output_sanitizer.py  # Output sanitizer (179 cases)
 python3 tests/test_rate_limiter.py      # Rate limiter (60 cases)
-python3 tests/test_overrides.py         # Override system (81 cases)
-python3 tests/test_conftest.py          # Test infrastructure (141 cases)
+python3 tests/test_overrides.py         # Override system (74 cases)
+python3 tests/test_conftest.py          # Test infrastructure (148 cases)
 ```
 
 ### Run Benchmarks (optional)
 
 ```bash
 python3 benchmarks/run_all.py          # All benchmarks (~2 min)
-python3 benchmarks/run_all.py --fast   # Skip slow NLP subprocess benchmarks
 ```
 
 ### Restart Claude Code
@@ -160,22 +106,20 @@ Hooks are loaded at session startup. Restart Claude Code or run `/hooks` to revi
 The hooks work out of the box. For customization:
 
 - **Allow a trusted endpoint** — add a URL pattern to `allow_trusted_endpoints` in `.claude/hooks/filter_rules.json`, or use the override CLI
-- **Adjust NLP sensitivity** — change `min_confidence` in `.claude/hooks/llm_filter_config.json` (lower = catches more, higher = fewer false positives)
 - **Disable a hook** — set `"enabled": false` in the config, or remove the hook entry from `.claude/settings.json`
 
 See the full [Configuration guide](docs/configuration.md) for all options.
 
 ## Override System
 
-Rules use a three-layer override system so teams can add exceptions without editing rule files:
+Rules use a two-layer override system so teams can add exceptions without editing rule files:
 
 | Layer | Scope | File | Can Override? |
 |-------|-------|------|---------------|
-| **Managed** | IT-enforced | `/etc/claude-code/hooks/managed_rules.json` | Cannot be overridden |
 | **Project** | Team-shared | `.claude/hooks/config_overrides.json` | Overrides `ask` rules only |
 | **User** | Personal | `~/.claude/hooks/config_overrides.json` | Overrides `ask` rules only |
 
-8 rules are hard `deny` (credentials, injection, exfiltration) — these cannot be overridden. 7 rules are soft `ask` (untrusted networks, internal IPs, employee IDs, etc.) — these can be overridden with the CLI:
+10 rules are hard `deny` (credentials, injection, exfiltration) — these cannot be overridden. 7 rules are soft `ask` (untrusted networks, internal IPs, employee IDs, etc.) — these can be overridden with the CLI:
 
 ```bash
 # Allow a specific API endpoint
@@ -200,11 +144,11 @@ python3 .claude/hooks/override_cli.py test \
 python3 .claude/hooks/override_cli.py remove --scope project --name allow_company_api
 ```
 
-For IT-managed deployment, see [`managed/README.md`](managed/README.md).
+Managed/IT deployment overrides are available in [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro).
 
 ## Compliance Coverage
 
-All 40 filters are implemented across the four security layers.
+All 40 filters are implemented across the three security layers.
 
 | # | Filter | Layer | Scope | SCF Domain | SCF Control | Regulation | Value | Free |
 |---|--------|-------|-------|------------|-------------|------------|-------|:----:|
@@ -333,11 +277,10 @@ Every hook is benchmarked at two levels: **subprocess** (real-world latency incl
 
 | Stage | Subprocess (p50) | In-process | Notes |
 |-------|----------------:|----------:|-------|
-| Regex filter | 24ms | 0.07ms | 16 rules, ~160 patterns |
-| NLP filter (service) | 31ms | 1.4ms | Persistent service + spaCy |
+| Regex filter | 24ms | 0.07ms | 18 rules, ~180 patterns |
 | Rate limiter | 20ms | 0.06ms | ~50 audit log entries |
 | Output sanitizer | 20ms | 0.02ms | 7 redaction rules |
-| **Total** | **~95ms** | **~1.6ms** | Subprocess dominated by Python startup |
+| **Total** | **~64ms** | **~0.15ms** | Subprocess dominated by Python startup |
 
 Write/Edit and Read paths only run the regex filter (~20ms subprocess, <0.01ms in-process).
 
@@ -352,9 +295,6 @@ Write/Edit and Read paths only run the regex filter (~20ms subprocess, <0.01ms i
 | `check_override()` | 67K ops/s | 50 overrides, no match |
 | `log_event()` | 128K ops/s | JSONL append |
 | Supplementary plugins | 100K–4.6M ops/s | Pure Python, no external deps |
-| spaCy plugin | 560 ops/s | NER model inference |
-
-The ~17ms subprocess overhead per hook is Python interpreter startup. The persistent NLP service (`llm_client.py`) reduces cold NLP invocations from ~730ms to ~31ms by keeping spaCy loaded.
 
 See the full [Benchmark guide](benchmarks/README.md) for methodology, all scenarios, and how to run.
 
@@ -364,7 +304,7 @@ See the full [Benchmark guide](benchmarks/README.md) for methodology, all scenar
 |----------|----------|-------------|
 | [Architecture](docs/architecture.md) | Developers, contributors | Hook pipeline internals, layer details, project structure |
 | [Configuration](docs/configuration.md) | Developers | Rule format, all configuration options, tuning guide |
-| [Plugins](docs/plugins.md) | Plugin developers | Plugin API, writing and registering custom plugins |
+| [Plugins](docs/plugins.md) | Plugin developers | Plugin system (Pro tier) |
 | [Testing](docs/testing.md) | Contributors | Test suites, running tests, adding test cases |
 | [Benchmarks](benchmarks/README.md) | Contributors, performance | Latency and throughput for every hook component |
 | [Diagrams](docs/sequence-diagram.md) | All | Visual pipeline sequence and decision flow diagrams |
@@ -393,10 +333,6 @@ Get NLP-powered PII detection alongside regex rules for comprehensive coverage.
 
 ## License
 
-[Business Source License 1.1](LICENSE)
+[MIT License](LICENSE)
 
-Free for non-production use (evaluation, testing, personal projects, academic research). Production use requires a commercial license — contact the Licensor.
-
-On the Change Date (4 years after each version's release), that version converts to [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-NLP plugin dependencies (spaCy, Presidio, transformers, PyTorch) use permissive licenses (MIT/Apache 2.0/BSD).
+Copyright (c) 2026 Shahead. Free and open source.

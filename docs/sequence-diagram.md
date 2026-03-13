@@ -19,7 +19,7 @@ sequenceDiagram
     Note over ClaudeCode: PreToolUse event fires (matcher: Bash)
 
     rect rgb(240, 248, 255)
-        Note over Regex,Rules: Hook 1: Regex Filter (16 rules, <1ms)
+        Note over Regex,Rules: Hook 1: Regex Filter (18 rules, <1ms)
         ClaudeCode->>Regex: JSON on stdin
         Regex->>Regex: Unicode normalize + homoglyph detect + zero-width strip
         Regex->>Rules: Load filter_rules.json
@@ -87,7 +87,7 @@ sequenceDiagram
 flowchart TD
     A[Tool use intercepted] --> B{Which tool?}
 
-    B -->|Bash| C[Hook 1: regex_filter.py<br/>filter_rules.json — 16 rules]
+    B -->|Bash| C[Hook 1: regex_filter.py<br/>filter_rules.json — 18 rules]
     B -->|Write / Edit| W[regex_filter.py<br/>filter_rules_write.json]
     B -->|Read| R[regex_filter.py<br/>filter_rules_read.json]
 
@@ -99,15 +99,15 @@ flowchart TD
     R1 -->|Match| R2[DENY - sensitive file blocked]
     R1 -->|No match| R3[ALLOW]
 
-    C --> D{Rules 1-4: Sensitive data?<br/>API keys, tokens, passwords,<br/>employee IDs, IBANs, passports}
+    C --> D{Rules 1-6: Sensitive data?<br/>API keys, tokens, passwords,<br/>employee IDs, IBANs, passports,<br/>SSNs, credit cards}
     D -->|Match| E[DENY - sensitive data detected]
-    D -->|No match| F{Rules 5-8: Attack patterns?<br/>base64, prompt injection,<br/>shell obfuscation, path traversal}
+    D -->|No match| F{Rules 7-10: Attack patterns?<br/>base64, prompt injection,<br/>shell obfuscation, path traversal}
     F -->|Match| F1[DENY - attack pattern detected]
-    F -->|No match| G{Rules 9-14: Exfiltration?<br/>sensitive files, DB strings,<br/>DNS exfil, pipe chains,<br/>internal IPs, customer IDs}
+    F -->|No match| G{Rules 11-16: Exfiltration?<br/>sensitive files, DB strings,<br/>DNS exfil, pipe chains,<br/>internal IPs, customer IDs}
     G -->|Match| G1[DENY - exfiltration blocked]
-    G -->|No match| H{Rule 15: Trusted endpoint?<br/>localhost, GitHub, PyPI,<br/>npm, crates.io, etc.}
+    G -->|No match| H{Rule 17: Trusted endpoint?<br/>localhost, GitHub, PyPI,<br/>npm, crates.io, etc.}
     H -->|Match| I[ALLOW - trusted host]
-    H -->|No match| J{Rule 16: Network call?<br/>curl, wget, ssh, requests,<br/>httpx, fetch, AI SDKs}
+    H -->|No match| J{Rule 18: Network call?<br/>curl, wget, ssh, requests,<br/>httpx, fetch, AI SDKs}
     J -->|Match| K[DENY - untrusted network]
     J -->|No match| L[ALLOW - no regex match]
 

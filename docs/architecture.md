@@ -5,7 +5,7 @@
 Hooks fire at different stages depending on the tool. All hooks log blocked/redacted events to `audit.log` via the audit logger.
 
 ```
-Bash command → regex_filter.py (filter_rules.json, 16 rules, <1ms)
+Bash command → regex_filter.py (filter_rules.json, 18 rules, <1ms)
              → rate_limiter.py (violation escalation, <1ms)
              → execute or block
                   ↓
@@ -23,7 +23,7 @@ All deny rules are placed before the allow rule to ensure sensitive data is bloc
 
 **File:** `.claude/hooks/regex_filter.py`
 
-### Bash Rules (`filter_rules.json` — 16 rules, ~160 patterns)
+### Bash Rules (`filter_rules.json` — 18 rules, ~180 patterns)
 
 | Rule | Action | What it catches |
 |------|--------|----------------|
@@ -101,7 +101,7 @@ claude-privacy-hook/
 │       ├── hook_utils.py       # Shared: Unicode normalization, field resolution
 │       ├── override_resolver.py# Override loading and checking
 │       ├── override_cli.py     # Override management CLI
-│       ├── filter_rules.json   # Bash rules (16 rules, ~160 patterns)
+│       ├── filter_rules.json   # Bash rules (18 rules, ~180 patterns)
 │       ├── filter_rules_write.json  # Write/Edit rules
 │       ├── filter_rules_read.json   # Read rules
 │       ├── output_sanitizer_rules.json # Redaction rules
@@ -109,7 +109,6 @@ claude-privacy-hook/
 │       └── config_overrides.json    # Project-level overrides
 ├── tests/                      # 5 test suites, 979 cases
 ├── benchmarks/                 # Benchmark suites
-├── managed/                    # IT deployment templates
 └── docs/                       # Documentation
 ```
 

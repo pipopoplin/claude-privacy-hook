@@ -1,15 +1,12 @@
 # Tests
 
-Test suites for all four security hook layers plus the override system, persistent NLP service, and shared test infrastructure.
+Test suites for all three security hook layers plus the override system and shared test infrastructure.
 
 ## Quick Start
 
 ```bash
-# Run everything (1312 tests)
+# Run everything (979 tests)
 python3 tests/run_all.py
-
-# Skip slow service tests
-python3 tests/run_all.py --fast
 ```
 
 ## Test Suites
@@ -17,12 +14,10 @@ python3 tests/run_all.py --fast
 | Suite | File | Cases | What it tests |
 |-------|------|-------|---------------|
 | **Regex Filter** | `test_regex_filter.py` | 518 | Pattern matching for Bash, Write/Edit, and Read rules |
-| **NLP Filter** | `test_nlp_filter.py` | 272 | PII detection, prompt injection, sensitive categories, entropy, semantic intent, config edge cases |
 | **Output Sanitizer** | `test_output_sanitizer.py` | 179 | API keys (20 patterns), SSNs, credit cards, emails, private keys, DB connections, internal IPs, stderr, config/input edge cases, audit logging, Unicode |
 | **Rate Limiter** | `test_rate_limiter.py` | 60 | Threshold boundaries, action filtering, session isolation, time window, config variants, malformed input, output format |
-| **Overrides** | `test_overrides.py` | 81 | Resolver unit tests, NLP override merging, integration allows, non-overridable rules, edge cases, audit logging, CLI tool, performance |
-| **NLP Service** | `test_nlp_service.py` | 42 | Persistent TCP service lifecycle, protocol edge cases, concurrency, client behavior, config variants, performance |
-| **Conftest Infrastructure** | `test_conftest.py` | 160 | Path constants, parse_decision, detected, run_hook_raw, run_hook, TestRunner, integration round-trips, edge cases |
+| **Overrides** | `test_overrides.py` | 74 | Resolver unit tests, integration allows, non-overridable rules, edge cases, audit logging, CLI tool, performance |
+| **Conftest Infrastructure** | `test_conftest.py` | 148 | Path constants, parse_decision, detected, run_hook_raw, run_hook, TestRunner, integration round-trips, edge cases |
 
 ## Shared Infrastructure
 
@@ -54,19 +49,6 @@ Tests the regex filter (`regex_filter.py`) against all three rule sets with exte
 **Read rules** (`filter_rules_read.json`) — 63 cases:
 - Block: system auth (/etc/passwd, /etc/shadow, /etc/sudoers), SSH (id_rsa, id_ecdsa, id_dsa, config, authorized_keys, known_hosts, host keys), .env variants (.env, .env.production, .env.local, .env.staging, .env.development), cloud credentials (AWS, GCloud, Azure, Terraform), Kubernetes (kube config, PKI), history files (bash, zsh, python, mysql, psql), credential dotfiles (.netrc, .pgpass, .my.cnf), package manager auth (.npmrc, .pypirc), Docker, GPG, wallet.dat, Rails (master.key, credentials.yml.enc), Vault token
 - Allow: normal source files, README, /etc/hostname, /etc/hosts, /etc/os-release, /etc/resolv.conf, config files, .gitignore, Dockerfile, .envrc, .env_template, public keys
-
-### test_nlp_filter.py
-
-Tests the NLP filter (`llm_filter.py`) plugin system:
-
-- **Config edge cases** (12) — disabled config, no plugins, high confidence threshold, action=ask, selective entity types, empty entity types, empty command, missing tool_input, custom field path, disabled individual plugin, malformed JSON stdin, multiple detections
-- **PII detection** (23, requires spaCy/Presidio/DistilBERT) — emails (standard, subdomain, minimal TLD), phone numbers (dashes, dots, country code), SSNs (dashes, dots, spaces), credit cards (spaces, dashes, boundary 13-16 digits), IP addresses, multiple PII, 8 safe commands
-- **Prompt injection plugin** (62) — all 17 patterns: role manipulation (you are now, act as, pretend, role: system, system: you are), instruction override (ignore/disregard/forget/override/bypass + new instructions:), jailbreak (jailbreak, DAN mode/prompt, do anything now, sudo/admin mode, no restrictions/limitations/rules/guardrails), structural injection (XML system/prompt/instruction/context tags with spaces, [INST], markdown ### roles), exfiltration (reveal/show/print/display/output prompt/instructions/rules, what are your), case variations, 13 false positives
-- **Sensitive categories plugin** (107) — medical assignment (21: patient_id, MRN, diagnosis, ICD-10 formats, medical_record, prescription_id/number/rx, NPI, health_insurance_id, patient+PII fields), medical context (9: patient+record, diagnosis+name, medication/allergy/condition/disability+person), 5 medical FPs, biometric (37: all 7 pattern groups — biometric_data/id/template/hash/scan/token, fingerprint/retina/iris variants, face_id/encoding/embedding/recognition/template, genetic_data/sequence/marker/profile/test, voice_print/sample/pattern/biometric, palm_print/scan/vein, dna_sample/sequence/profile/result/test, separators), 6 biometric FPs, protected categories (22: race/ethnicity/ethnic_group, religion/religious_affiliation/faith/denomination, political_party/affiliation/view, sexual_orientation/gender_identity, union_membership/trade_union, disability/disabled/handicap, context patterns), 6 protected FPs
-- **Entropy detector plugin** (20) — high-entropy tokens with context keywords (key/token/password/bearer/auth/private/signing/encryption/credential), boundary 16-char below threshold, 15-char below min_length, 32-char with context, pure hex hash FPs (MD5/SHA1/SHA256), 64-char token, 7 false positives
-- **Semantic intent plugin** (39) — dangerous verbs (exfiltrate/steal/extract/dump/harvest/scrape/siphon/smuggle/leak) + all targets, network verbs (upload/send/post/transmit/transfer/forward/relay), case insensitivity, distance boundary, 13 false positives
-
-PII tests are skipped if no PII plugin is installed. Supplementary plugin tests always run (pure Python, no external deps).
 
 ### test_output_sanitizer.py
 
@@ -104,29 +86,15 @@ Tests the rate limiter (`rate_limiter.py`):
 
 ### test_overrides.py
 
-Tests the three-layer override system:
+Tests the two-layer override system:
 
 - **Resolver unit tests** (28) — basic match, non-overridable rule, expired/future/today expiry, wrong rule_name, case insensitive, full regex, multiple patterns (any match), first-wins ordering, source preservation (user/project), empty overrides/rule, missing overridable defaults True, invalid regex skipped, string patterns, empty pattern, no patterns key, metadata entries skipped
-- **NLP override merging** (7) — empty overrides, disabled entity types, confidence overrides per type, user-wins-over-project precedence, deduplication
 - **Integration allows** (6) — override for each overridable rule: untrusted network, internal IP, employee ID, DB connection, customer ID, IBAN
 - **Non-overridable rules** (5) — block_sensitive_data, block_prompt_injection, block_shell_obfuscation, block_path_traversal, block_dns_exfiltration stay blocked with override
 - **Edge cases** (12) — expired/future expiry, wrong rule_name, missing/empty/malformed override file, multiple overrides (network+IP), partial pattern match, selective URL matching
 - **Audit logging** (4) — override_allow recorded with override_name and override_source, non-overridden commands have no override_allow
 - **CLI tool** (17) — add/list/remove cycle, add with --expires, duplicate name auto-increment, remove nonexistent, validate (valid/invalid-rule/non-overridable/invalid-regex/expired-warning), test (overridden/not-overridden/non-overridable)
 - **Performance** (2) — 50 overrides match and no-match complete under 500ms
-
-### test_nlp_service.py
-
-Tests the persistent NLP detection service (`llm_service.py` + `llm_client.py`):
-
-- **Lifecycle** (6): startup, lock file validation, per-config isolation, lock cleanup, graceful/SIGINT shutdown
-- **Safe commands** (2): single and batch safe command pass-through
-- **Detection** (8): prompt injection, PII, sensitive categories, high-entropy secrets, semantic intent, 14 injection variants, 9 false-positive checks, mixed allow/detect interleaving
-- **Protocol edge cases** (8): empty command, missing fields, malformed JSON, oversized prefix, client disconnect, partial header, zero-length payload
-- **Concurrency** (3): request reuse, 20 rapid sequential, 5 concurrent threads
-- **Client behavior** (7): auto-start, detection, safe allow, empty/malformed stdin, stale lock restart, service reuse
-- **Config variants** (6): disabled config, high confidence threshold, no supplementary plugins, action=ask, selective entity types, config hot-reload
-- **Performance** (2): safe command latency, detection latency
 
 ### test_conftest.py
 
@@ -165,19 +133,12 @@ READ_CASES = [
     ("Description", "/path/to/file", "allow|block"),
     ...
 ]
-
-# NLP filter (test_nlp_filter.py)
-PII_CASES = [
-    ("Description", "command", True|False),  # True = should detect
-    ...
-]
 ```
 
-For standalone tests (overrides, rate limiter, service), add a new `test_*()` function that returns `bool` and register it in the `tests` list in `main()`.
+For standalone tests (overrides, rate limiter), add a new `test_*()` function that returns `bool` and register it in the `tests` list in `main()`.
 
 ## Dependencies
 
-- All regex filter, output sanitizer, rate limiter, and override tests work with Python 3.10+ only (no extra deps)
-- NLP filter PII tests require at least one: `spacy`, `presidio-analyzer`, or `transformers`
-- Supplementary NLP plugin tests (prompt injection, categories, entropy, intent) have no extra deps
-- NLP service tests require the service to be startable (same deps as NLP filter)
+All tests work with Python 3.10+ only (no extra dependencies required).
+
+> NLP filter tests (PII detection, NLP service) are available in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro).

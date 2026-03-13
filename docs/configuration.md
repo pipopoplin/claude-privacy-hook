@@ -61,7 +61,7 @@ Rules are evaluated top-to-bottom. `deny` rules are ordered before `ask` rules. 
 
 | File | Description |
 |------|-------------|
-| `filter_rules.json` | Bash rules (16 rules, ~160 patterns) |
+| `filter_rules.json` | Bash rules (18 rules, ~180 patterns) |
 | `filter_rules_write.json` | Write/Edit rules (8 rules) |
 | `filter_rules_read.json` | Read rules (1 rule) |
 | `output_sanitizer_rules.json` | Output redaction rules (7 rules) |
@@ -135,7 +135,7 @@ python3 .claude/hooks/override_cli.py test --command "COMMAND" --rule RULE_NAME
 
 ### Managed Deployment
 
-For IT-managed non-overridable rules, see [`managed/README.md`](../managed/README.md).
+Managed deployment (IT-enforced non-overridable rules) is available in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro).
 
 ## Output Sanitizer Rules
 

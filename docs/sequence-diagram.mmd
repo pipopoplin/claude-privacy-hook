@@ -3,8 +3,6 @@ sequenceDiagram
     participant ClaudeCode as Claude Code
     participant Regex as regex_filter.py
     participant Rules as filter_rules*.json
-    participant NLP as llm_filter.py
-    participant Plugins as plugins/
     participant RateLim as rate_limiter.py
     participant Shell as Bash Shell
     participant Sanitizer as output_sanitizer.py
@@ -16,7 +14,7 @@ sequenceDiagram
     Note over ClaudeCode: PreToolUse event fires (matcher: Bash)
 
     rect rgb(240, 248, 255)
-        Note over Regex,Rules: Hook 1: Regex Filter (16 rules, <1ms)
+        Note over Regex,Rules: Hook 1: Regex Filter (18 rules, <1ms)
         ClaudeCode->>Regex: JSON on stdin
         Regex->>Regex: Unicode normalize + homoglyph detect + zero-width strip
         Regex->>Rules: Load filter_rules.json
@@ -37,39 +35,8 @@ sequenceDiagram
         end
     end
 
-    rect rgb(255, 248, 240)
-        Note over NLP,Plugins: Hook 2: NLP Filter (PII + supplementary, 3-25ms)
-        ClaudeCode->>NLP: JSON on stdin
-        NLP->>Plugins: Load plugins.json registry
-
-        Note over NLP,Plugins: PII plugins (first available wins)
-        loop For each plugin in priority order
-            NLP->>Plugins: is_available()?
-            alt Available
-                NLP->>Plugins: detect(text, entity_types)
-                Plugins-->>NLP: DetectionResult[]
-            else Not available
-                NLP->>NLP: Try next plugin
-            end
-        end
-
-        Note over NLP,Plugins: Supplementary plugins (all run independently)
-        NLP->>Plugins: prompt_injection.detect()
-        NLP->>Plugins: sensitive_categories.detect()
-        NLP->>Plugins: entropy_detector.detect()
-        NLP->>Plugins: semantic_intent.detect()
-
-        alt Findings above min_confidence
-            NLP->>Audit: log_event(deny)
-            NLP-->>ClaudeCode: {"permissionDecision":"deny"}
-            ClaudeCode-->>User: PII / injection / secret detected
-        else No findings
-            NLP-->>ClaudeCode: (empty stdout) exit 0
-        end
-    end
-
     rect rgb(248, 240, 255)
-        Note over RateLim,Audit: Hook 3: Rate Limiter (<1ms)
+        Note over RateLim,Audit: Hook 2: Rate Limiter (<1ms)
         ClaudeCode->>RateLim: JSON on stdin
         RateLim->>Audit: Read audit.log for session violations
         RateLim->>RateLim: Count violations in rolling window

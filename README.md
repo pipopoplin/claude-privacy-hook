@@ -136,14 +136,12 @@ Or use this repo directly as your project.
 ### Verify Installation
 
 ```bash
-python3 tests/run_all.py                # Run all 1312 tests across 7 suites
+python3 tests/run_all.py                # Run all 979 tests across 5 suites
 python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read (518 cases)
-python3 tests/test_nlp_filter.py        # NLP filter: PII + plugins (272 cases)
 python3 tests/test_output_sanitizer.py  # Output sanitizer (179 cases)
 python3 tests/test_rate_limiter.py      # Rate limiter (60 cases)
 python3 tests/test_overrides.py         # Override system (81 cases)
-python3 tests/test_nlp_service.py       # NLP persistent service (42 cases)
-python3 tests/test_conftest.py          # Test infrastructure (160 cases)
+python3 tests/test_conftest.py          # Test infrastructure (141 cases)
 ```
 
 ### Run Benchmarks (optional)
@@ -370,6 +368,28 @@ See the full [Benchmark guide](benchmarks/README.md) for methodology, all scenar
 | [Testing](docs/testing.md) | Contributors | Test suites, running tests, adding test cases |
 | [Benchmarks](benchmarks/README.md) | Contributors, performance | Latency and throughput for every hook component |
 | [Diagrams](docs/sequence-diagram.md) | All | Visual pipeline sequence and decision flow diagrams |
+
+## Free vs Pro
+
+| Feature | Free (MIT) | Pro ($5/mo/seat) |
+|---------|-----------|-------------------|
+| Regex-based PII detection (18 rules) | ✅ | ✅ |
+| Write/Edit content filtering | ✅ | ✅ |
+| Read path protection | ✅ | ✅ |
+| Output sanitizer (7 redaction rules) | ✅ | ✅ |
+| Rate limiter (violation escalation) | ✅ | ✅ |
+| Audit logging | ✅ | ✅ Enhanced (SIEM) |
+| User & project overrides | ✅ Free rules | ✅ All rules |
+| NLP-based PII detection | ❌ | ✅ |
+| Pluggable NLP backends (spaCy, Presidio, DistilBERT) | ❌ | ✅ |
+| Managed/IT deployment overrides | ❌ | ✅ |
+| Fleet/central config management | ❌ | Roadmap |
+
+### Upgrade to Pro
+
+Get NLP-powered PII detection alongside regex rules for comprehensive coverage.
+
+→ [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro) — $5/month per seat
 
 ## License
 

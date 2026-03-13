@@ -14,26 +14,19 @@ TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 SUITES = [
     ("Regex Filter", "test_regex_filter.py"),
-    ("NLP Filter", "test_nlp_filter.py"),
     ("Output Sanitizer", "test_output_sanitizer.py"),
     ("Rate Limiter", "test_rate_limiter.py"),
     ("Overrides", "test_overrides.py"),
-    ("NLP Service", "test_nlp_service.py"),
     ("Conftest Infrastructure", "test_conftest.py"),
 ]
 
 
 def main():
-    fast_mode = "--fast" in sys.argv
-
     total_passed = 0
     total_failed = 0
     suite_results = []
 
     for label, filename in SUITES:
-        if fast_mode and filename == "test_nlp_service.py":
-            suite_results.append((label, "SKIP", 0, 0))
-            continue
 
         path = os.path.join(TESTS_DIR, filename)
         result = subprocess.run(

@@ -20,6 +20,9 @@ from conftest import (
     run_hook, run_hook_raw, parse_decision, TestRunner,
 )
 
+# Allow tests to use synthetic rule names not in FREE_TIER_RULES
+os.environ["HOOK_SKIP_TIER_CHECK"] = "1"
+
 
 # --- Helpers ---
 
@@ -414,96 +417,6 @@ def test_resolver_metadata_entry_skipped(t: TestRunner):
         result = check_override(overrides, rule, "hello world")
         t.check("Metadata entry skipped, real override matches",
                 result is not None and result["override_name"] == "real_ovr", True)
-    finally:
-        sys.path.pop(0)
-
-
-# =====================================================================
-# Tests: NLP override merging
-# =====================================================================
-
-def test_merge_nlp_empty(t: TestRunner):
-    """merge_nlp_overrides with no NLP data returns empty defaults."""
-    sys.path.insert(0, HOOKS_DIR)
-    try:
-        from override_resolver import merge_nlp_overrides
-        result = merge_nlp_overrides([])
-        t.check("Empty overrides → empty disabled types",
-                result["disabled_entity_types"], [])
-        t.check("Empty overrides → empty confidence overrides",
-                result["confidence_overrides"], {})
-    finally:
-        sys.path.pop(0)
-
-
-def test_merge_nlp_disabled_types(t: TestRunner):
-    """merge_nlp_overrides collects disabled_entity_types."""
-    sys.path.insert(0, HOOKS_DIR)
-    try:
-        from override_resolver import merge_nlp_overrides
-        overrides = [
-            {"_source": "project",
-             "_nlp_overrides": {"disabled_entity_types": ["EMAIL_ADDRESS", "PHONE_NUMBER"]}},
-        ]
-        result = merge_nlp_overrides(overrides)
-        disabled = set(result["disabled_entity_types"])
-        t.check("Disabled types collected",
-                disabled, {"EMAIL_ADDRESS", "PHONE_NUMBER"})
-    finally:
-        sys.path.pop(0)
-
-
-def test_merge_nlp_confidence_overrides(t: TestRunner):
-    """merge_nlp_overrides collects confidence_overrides."""
-    sys.path.insert(0, HOOKS_DIR)
-    try:
-        from override_resolver import merge_nlp_overrides
-        overrides = [
-            {"_source": "project",
-             "_nlp_overrides": {"confidence_overrides": {"PHONE_NUMBER": 0.95, "US_SSN": 0.99}}},
-        ]
-        result = merge_nlp_overrides(overrides)
-        t.check("Confidence override for PHONE",
-                result["confidence_overrides"].get("PHONE_NUMBER"), 0.95)
-        t.check("Confidence override for SSN",
-                result["confidence_overrides"].get("US_SSN"), 0.99)
-    finally:
-        sys.path.pop(0)
-
-
-def test_merge_nlp_user_wins(t: TestRunner):
-    """User NLP overrides take precedence over project."""
-    sys.path.insert(0, HOOKS_DIR)
-    try:
-        from override_resolver import merge_nlp_overrides
-        overrides = [
-            {"_source": "user",
-             "_nlp_overrides": {"confidence_overrides": {"PHONE_NUMBER": 0.99}}},
-            {"_source": "project",
-             "_nlp_overrides": {"confidence_overrides": {"PHONE_NUMBER": 0.80}}},
-        ]
-        result = merge_nlp_overrides(overrides)
-        # User processed second in reversed order → user value wins via .update()
-        t.check("User confidence wins over project",
-                result["confidence_overrides"]["PHONE_NUMBER"], 0.99)
-    finally:
-        sys.path.pop(0)
-
-
-def test_merge_nlp_deduplication(t: TestRunner):
-    """Disabled entity types are deduplicated."""
-    sys.path.insert(0, HOOKS_DIR)
-    try:
-        from override_resolver import merge_nlp_overrides
-        overrides = [
-            {"_source": "user",
-             "_nlp_overrides": {"disabled_entity_types": ["EMAIL_ADDRESS"]}},
-            {"_source": "project",
-             "_nlp_overrides": {"disabled_entity_types": ["EMAIL_ADDRESS", "PHONE_NUMBER"]}},
-        ]
-        result = merge_nlp_overrides(overrides)
-        t.check("Deduplication: 2 unique types",
-                len(result["disabled_entity_types"]), 2)
     finally:
         sys.path.pop(0)
 
@@ -1441,11 +1354,6 @@ def main():
     test_resolver_metadata_entry_skipped(t)
 
     t.section("NLP override merging")
-    test_merge_nlp_empty(t)
-    test_merge_nlp_disabled_types(t)
-    test_merge_nlp_confidence_overrides(t)
-    test_merge_nlp_user_wins(t)
-    test_merge_nlp_deduplication(t)
 
     t.section("Integration: override allows blocked commands")
     test_override_allows_blocked_network(t)

@@ -17,17 +17,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/llm_client.py \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/llm_filter_config.json",
-            "timeout": 30,
-            "statusMessage": "Scanning for sensitive content (NLP)..."
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/rate_limiter.py \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/rate_limiter_config.json",
             "timeout": 5,
             "statusMessage": "Checking session rate limits..."

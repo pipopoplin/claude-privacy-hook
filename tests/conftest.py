@@ -19,9 +19,6 @@ HOOKS_DIR = os.path.join(PROJECT_ROOT, ".claude", "hooks")
 
 # Hook scripts
 REGEX_FILTER = os.path.join(HOOKS_DIR, "regex_filter.py")
-LLM_FILTER = os.path.join(HOOKS_DIR, "llm_filter.py")
-LLM_CLIENT = os.path.join(HOOKS_DIR, "llm_client.py")
-LLM_SERVICE = os.path.join(HOOKS_DIR, "llm_service.py")
 OUTPUT_SANITIZER = os.path.join(HOOKS_DIR, "output_sanitizer.py")
 RATE_LIMITER = os.path.join(HOOKS_DIR, "rate_limiter.py")
 
@@ -29,7 +26,6 @@ RATE_LIMITER = os.path.join(HOOKS_DIR, "rate_limiter.py")
 BASH_RULES = os.path.join(HOOKS_DIR, "filter_rules.json")
 WRITE_RULES = os.path.join(HOOKS_DIR, "filter_rules_write.json")
 READ_RULES = os.path.join(HOOKS_DIR, "filter_rules_read.json")
-LLM_CONFIG = os.path.join(HOOKS_DIR, "llm_filter_config.json")
 SANITIZER_RULES = os.path.join(HOOKS_DIR, "output_sanitizer_rules.json")
 RATE_LIMITER_CONFIG = os.path.join(HOOKS_DIR, "rate_limiter_config.json")
 OVERRIDE_FILE = os.path.join(HOOKS_DIR, "config_overrides.json")

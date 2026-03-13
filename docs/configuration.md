@@ -6,26 +6,16 @@ See the main [README](../README.md#installation) for full installation instructi
 
 ```bash
 # Linux / macOS
-./install.sh              # Full install (all NLP plugins)
-./install.sh --core       # Core only (zero dependencies)
-./install.sh --spacy      # Recommended: core + spaCy
+./install.sh              # Install (zero dependencies, Python stdlib only)
 
 # Windows
-install.bat               # Full install
-install.bat --core        # Core only
+install.bat               # Install
 
-# Activate the virtual environment
-source claude_privacy_hook_env/bin/activate   # Linux/macOS
-claude_privacy_hook_env\Scripts\activate.bat  # Windows
+# macOS
+./install_mac.sh          # macOS wrapper (checks Xcode CLT + Homebrew)
 ```
 
-The install scripts create a `claude_privacy_hook_env` virtual environment. Core hooks (regex filter, output sanitizer, rate limiter) use only Python stdlib. NLP plugins are optional.
-
-| Plugin | Package | Use case |
-|--------|---------|----------|
-| spaCy | `spacy` + `en_core_web_sm` | Recommended default, lightweight NER (~3ms) |
-| Presidio | `presidio-analyzer` | Known PII types, fastest (~0.4ms) |
-| DistilBERT | `transformers` + `torch` | Best accuracy NER (~25ms, large download) |
+The install scripts set up the hook system. All hooks (regex filter, output sanitizer, rate limiter) use only Python stdlib — no external dependencies required.
 
 ---
 
@@ -37,31 +27,18 @@ Add a pattern to the `allow_trusted_endpoints` rule in `.claude/hooks/filter_rul
 {"pattern": "https?://api\\.your-company\\.com", "label": "Your API"}
 ```
 
-## Adjust NLP Sensitivity
+Or use the override CLI:
 
-Edit `.claude/hooks/llm_filter_config.json`:
-
-```json
-{
-  "min_confidence": 0.7,
-  "action": "deny",
-  "entity_types": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "US_SSN", "CREDIT_CARD", "IP_ADDRESS",
-                   "PROMPT_INJECTION", "MEDICAL_DATA", "BIOMETRIC_DATA", "PROTECTED_CATEGORY",
-                   "HIGH_ENTROPY_SECRET", "SUSPICIOUS_INTENT"]
-}
+```bash
+python3 .claude/hooks/override_cli.py add --scope project \
+  --rule block_untrusted_network --pattern 'https?://api\.your-company\.com' --label 'Your API'
 ```
-
-- `min_confidence` — lower catches more, higher reduces false positives (default: 0.7)
-- `action` — `"deny"` blocks, `"ask"` prompts user for approval
-- `entity_types` — which entity types to detect
-- `plugin_priority` — PII plugin preference order (first available wins)
-- `supplementary_plugins` — plugins that always run independently (default: `["prompt_injection", "sensitive_categories", "entropy_detector", "semantic_intent"]`)
 
 ## Disable a Hook
 
-Set `"enabled": false` in `llm_filter_config.json` to disable the NLP hook, or remove its entry from `.claude/settings.json`.
-
 To disable a specific regex rule, add `"enabled": false` to the rule in `filter_rules.json`.
+
+To disable an entire hook, remove its entry from `.claude/settings.json`.
 
 ## Rule Format Reference
 
@@ -80,9 +57,20 @@ Each rule in the JSON config files follows this structure:
 
 Rules are evaluated top-to-bottom. `deny` rules are ordered before `ask` rules. First match wins.
 
+## Configuration Files
+
+| File | Description |
+|------|-------------|
+| `filter_rules.json` | Bash rules (16 rules, ~160 patterns) |
+| `filter_rules_write.json` | Write/Edit rules (8 rules) |
+| `filter_rules_read.json` | Read rules (1 rule) |
+| `output_sanitizer_rules.json` | Output redaction rules (7 rules) |
+| `rate_limiter_config.json` | Rate limiter thresholds and window |
+| `config_overrides.json` | Project-level override exceptions |
+
 ## Override System
 
-The three-layer override system allows exceptions without editing rule files.
+The two-layer override system allows exceptions without editing rule files.
 
 ### Override File Format (`config_overrides.json`)
 
@@ -101,13 +89,7 @@ The three-layer override system allows exceptions without editing rule files.
       "added_by": "jane@company.com",
       "reason": "Required for integration testing"
     }
-  ],
-  "nlp_overrides": {
-    "disabled_entity_types": ["EMAIL_ADDRESS"],
-    "confidence_overrides": {
-      "PHONE_NUMBER": 0.95
-    }
-  }
+  ]
 }
 ```
 
@@ -129,13 +111,6 @@ The three-layer override system allows exceptions without editing rule files.
 |-------|-----------|----------|
 | User | `~/.claude/hooks/config_overrides.json` | Highest |
 | Project | `.claude/hooks/config_overrides.json` | Lower |
-
-### NLP Override Fields
-
-| Field | Description |
-|-------|-------------|
-| `disabled_entity_types` | List of entity types to skip (e.g. `["EMAIL_ADDRESS"]`) |
-| `confidence_overrides` | Per-type confidence thresholds (e.g. `{"PHONE_NUMBER": 0.95}`) |
 
 ### Override CLI
 
@@ -176,3 +151,5 @@ Edit `.claude/hooks/rate_limiter_config.json`:
 | `block_threshold` | 10 | Number of violations before blocking |
 | `window_seconds` | 300 | Rolling window size (5 minutes) |
 | `cooldown_seconds` | 60 | Cooldown period after block |
+
+> NLP configuration (PII detection sensitivity, plugin settings, entity type selection) is available in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro).

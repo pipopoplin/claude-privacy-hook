@@ -1,16 +1,60 @@
-"""Override resolver for the three-layer override system.
+"""Override resolver for the free-tier override system.
 
 Loads user and project override files, checks whether a triggered rule
 should be allowed based on override patterns, expiry dates, and the
 rule's overridable flag.
 
 Override priority: user > project (first match wins).
+Overrides are scoped to free-tier rules only. Pro rules require a paid license.
 """
 
 import json
 import os
 import re
 from datetime import date
+
+# Free-tier rule whitelist — overrides are only allowed for these rules.
+# Pro tier extends this set. Keep in sync with free-tier config files.
+FREE_TIER_RULES = frozenset({
+    # filter_rules.json (Bash)
+    "block_sensitive_data",
+    "block_passport_licence",
+    "block_base64_payloads",
+    "block_prompt_injection",
+    "block_shell_obfuscation",
+    "block_path_traversal",
+    "block_dns_exfiltration",
+    "block_pipe_chain_exfiltration",
+    "block_ssn_national_id",
+    "block_credit_card_numbers",
+    "block_employee_hr_ids",
+    "block_iban_bank_accounts",
+    "block_sensitive_file_access",
+    "block_database_connection_strings",
+    "block_internal_network_addresses",
+    "block_customer_contract_ids",
+    "allow_trusted_endpoints",
+    "block_untrusted_network",
+    # filter_rules_write.json (Write/Edit)
+    "block_api_keys_in_content",
+    "block_private_keys_in_content",
+    "block_hardcoded_passwords_in_content",
+    "block_database_connection_strings_in_content",
+    "block_ssn_in_content",
+    "block_credit_cards_in_content",
+    "block_internal_ips_in_content",
+    "block_api_keys_in_edit",
+    # filter_rules_read.json (Read)
+    "block_sensitive_file_read",
+    # output_sanitizer_rules.json
+    "redact_api_keys",
+    "redact_ssn",
+    "redact_credit_cards",
+    "redact_email_addresses",
+    "redact_private_keys",
+    "redact_database_connection_strings",
+    "redact_internal_ip_addresses",
+})
 
 
 def _load_override_file(path: str, source: str) -> list[dict]:
@@ -24,19 +68,12 @@ def _load_override_file(path: str, source: str) -> list[dict]:
         return []
 
     overrides = data.get("overrides", [])
-    nlp = data.get("nlp_overrides", {})
 
     result = []
     for ovr in overrides:
         ovr = dict(ovr)
         ovr["_source"] = source
         result.append(ovr)
-
-    # Attach nlp_overrides metadata to allow merging later
-    if nlp and result:
-        result[0].setdefault("_nlp_overrides", {}).update(nlp)
-    elif nlp:
-        result.append({"_source": source, "_nlp_overrides": nlp})
 
     return result
 
@@ -74,6 +111,11 @@ def check_override(
 
     rule_name = rule.get("name", "")
     if not rule_name:
+        return None
+
+    # Free tier: only allow overrides for free-tier rules
+    # Set HOOK_SKIP_TIER_CHECK=1 for testing with synthetic rule names
+    if not os.environ.get("HOOK_SKIP_TIER_CHECK") and rule_name not in FREE_TIER_RULES:
         return None
 
     today = date.today().isoformat()
@@ -116,35 +158,3 @@ def check_override(
     return None
 
 
-def merge_nlp_overrides(overrides: list[dict]) -> dict:
-    """Merge NLP override sections from user and project overrides.
-
-    User settings take priority over project settings.
-    Returns a dict with optional keys:
-      - disabled_entity_types: list[str]
-      - confidence_overrides: dict[str, float]
-    """
-    merged: dict = {
-        "disabled_entity_types": [],
-        "confidence_overrides": {},
-    }
-
-    # Process in reverse (project first, then user) so user wins
-    for ovr in reversed(overrides):
-        nlp = ovr.get("_nlp_overrides", {})
-        if not nlp:
-            continue
-
-        disabled = nlp.get("disabled_entity_types", [])
-        if disabled:
-            # User additions extend; duplicates are fine (set later)
-            merged["disabled_entity_types"].extend(disabled)
-
-        confidence = nlp.get("confidence_overrides", {})
-        if confidence:
-            merged["confidence_overrides"].update(confidence)
-
-    # De-duplicate
-    merged["disabled_entity_types"] = list(set(merged["disabled_entity_types"]))
-
-    return merged

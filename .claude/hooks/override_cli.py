@@ -31,7 +31,7 @@ def _get_override_path(scope: str) -> str:
 def _load_overrides(path: str) -> dict:
     """Load override file, creating it if it doesn't exist."""
     if not os.path.isfile(path):
-        return {"version": 1, "overrides": [], "nlp_overrides": {}}
+        return {"version": 1, "overrides": []}
     with open(path) as f:
         return json.load(f)
 
@@ -62,6 +62,16 @@ def _load_rules() -> dict[str, dict]:
 
 def cmd_add(args: argparse.Namespace) -> int:
     """Add a new override."""
+    # Check rule is in free tier
+    from override_resolver import FREE_TIER_RULES
+    if args.rule not in FREE_TIER_RULES:
+        print(
+            f"Rule '{args.rule}' is not available in the free tier.\n"
+            f"Upgrade to Pro ($5/mo) for overrides on all rules: https://claude-privacy-hook.dev/pro",
+            file=sys.stderr,
+        )
+        return 1
+
     path = _get_override_path(args.scope)
     data = _load_overrides(path)
 

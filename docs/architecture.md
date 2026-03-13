@@ -6,7 +6,6 @@ Hooks fire at different stages depending on the tool. All hooks log blocked/reda
 
 ```
 Bash command → regex_filter.py (filter_rules.json, 16 rules, <1ms)
-             → llm_filter.py (PII + 4 supplementary plugins, 3-25ms)
              → rate_limiter.py (violation escalation, <1ms)
              → execute or block
                   ↓
@@ -53,33 +52,6 @@ Blocks sensitive data in file content: API keys, credentials, PII patterns, priv
 
 Blocks access to sensitive file paths: `/etc/passwd`, `.ssh`, `.env`, `.aws`, `.kube`, shell history, etc.
 
-## NLP Filter (Layer 2)
-
-Detects PII that regex can't catch — real names, email addresses, phone numbers, SSNs, credit card numbers embedded in commands.
-
-**File:** `.claude/hooks/llm_filter.py`
-
-Uses a two-tier plugin dispatch:
-
-### PII Plugins (first available wins)
-
-| Plugin | Tier | Latency | Best for |
-|--------|------|---------|----------|
-| presidio | SubMillisecond | ~0.4ms | Production, known PII types |
-| spacy | EdgeDevice | ~3ms | Low resource, good default |
-| distilbert | HighAccuracy | ~25ms | Maximum detection accuracy |
-
-### Supplementary Plugins (always run independently)
-
-| Plugin | Tier | Latency | Best for |
-|--------|------|---------|----------|
-| prompt_injection | EdgeDevice | ~1ms | Jailbreak / injection detection (no external deps) |
-| sensitive_categories | EdgeDevice | ~1ms | Medical, biometric, and GDPR Art.9 protected categories (no external deps) |
-| entropy_detector | EdgeDevice | ~1ms | High-entropy secret detection for unknown token formats (no external deps) |
-| semantic_intent | EdgeDevice | ~1ms | Verb+target heuristic classification for suspicious command intent (no external deps) |
-
-The supplementary plugin architecture ensures all these detectors fire on every command, even if no PII plugin is installed.
-
 ## Output Sanitizer (PostToolUse)
 
 Runs after command execution and redacts sensitive data from stdout/stderr using 7 pattern rules: API keys, SSNs, credit cards, emails, private keys, DB connection strings, internal IPs.
@@ -100,6 +72,18 @@ Override log path via `HOOK_AUDIT_LOG` env var.
 
 **File:** `.claude/hooks/audit_logger.py`
 
+## Hook Utilities
+
+Shared Unicode normalization (NFKC, homoglyphs, zero-width character stripping) and dot-path field resolution used by all hooks.
+
+**File:** `.claude/hooks/hook_utils.py`
+
+## Override System
+
+Two-layer override system allowing exceptions without editing rule files. User overrides (`~/.claude/hooks/config_overrides.json`) take priority over project overrides (`.claude/hooks/config_overrides.json`). Non-overridable rules cannot be bypassed.
+
+**Files:** `.claude/hooks/override_resolver.py`, `.claude/hooks/override_cli.py`, `.claude/hooks/config_overrides.json`
+
 ## Project Structure
 
 ```
@@ -107,14 +91,10 @@ claude-privacy-hook/
 ├── install.sh                  # Linux installer
 ├── install_mac.sh              # macOS installer (wraps install.sh)
 ├── install.bat                 # Windows installer
-├── requirements.txt            # Python dependencies
 ├── .claude/
 │   ├── settings.json           # Hook registrations
 │   └── hooks/
 │       ├── regex_filter.py     # Layer 1: regex engine
-│       ├── llm_filter.py       # Layer 2: NLP standalone
-│       ├── llm_client.py       # Layer 2: NLP client (persistent service)
-│       ├── llm_service.py      # Layer 2: NLP background service
 │       ├── output_sanitizer.py # Post-hook: output redaction
 │       ├── rate_limiter.py     # Meta: violation escalation
 │       ├── audit_logger.py     # Meta: JSONL audit logging
@@ -124,19 +104,15 @@ claude-privacy-hook/
 │       ├── filter_rules.json   # Bash rules (16 rules, ~160 patterns)
 │       ├── filter_rules_write.json  # Write/Edit rules
 │       ├── filter_rules_read.json   # Read rules
-│       ├── llm_filter_config.json   # NLP plugin config
 │       ├── output_sanitizer_rules.json # Redaction rules
 │       ├── rate_limiter_config.json # Rate limiter config
-│       ├── config_overrides.json    # Project-level overrides
-│       └── plugins/
-│           ├── plugins.json    # Plugin registry
-│           ├── base.py         # Plugin ABC
-│           └── *.py            # Plugin implementations
-├── tests/                      # 7 test suites, 1312 cases
-├── benchmarks/                 # 7 benchmark suites
+│       └── config_overrides.json    # Project-level overrides
+├── tests/                      # 5 test suites, 979 cases
+├── benchmarks/                 # Benchmark suites
 ├── managed/                    # IT deployment templates
 └── docs/                       # Documentation
 ```
 
-For visual diagrams of the hook pipeline, see [Hook System — Diagrams](sequence-diagram.md).
+> NLP-based PII detection, custom plugins, and enhanced features are available in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro).
 
+For visual diagrams of the hook pipeline, see [Hook System — Diagrams](sequence-diagram.md).

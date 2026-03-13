@@ -8,8 +8,6 @@ sequenceDiagram
     participant ClaudeCode as Claude Code
     participant Regex as regex_filter.py
     participant Rules as filter_rules*.json
-    participant NLP as llm_filter.py
-    participant Plugins as plugins/
     participant RateLim as rate_limiter.py
     participant Shell as Bash Shell
     participant Sanitizer as output_sanitizer.py
@@ -42,39 +40,8 @@ sequenceDiagram
         end
     end
 
-    rect rgb(255, 248, 240)
-        Note over NLP,Plugins: Hook 2: NLP Filter (PII + supplementary, 3-25ms)
-        ClaudeCode->>NLP: JSON on stdin
-        NLP->>Plugins: Load plugins.json registry
-
-        Note over NLP,Plugins: PII plugins (first available wins)
-        loop For each plugin in priority order
-            NLP->>Plugins: is_available()?
-            alt Available
-                NLP->>Plugins: detect(text, entity_types)
-                Plugins-->>NLP: DetectionResult[]
-            else Not available
-                NLP->>NLP: Try next plugin
-            end
-        end
-
-        Note over NLP,Plugins: Supplementary plugins (all run independently)
-        NLP->>Plugins: prompt_injection.detect()
-        NLP->>Plugins: sensitive_categories.detect()
-        NLP->>Plugins: entropy_detector.detect()
-        NLP->>Plugins: semantic_intent.detect()
-
-        alt Findings above min_confidence
-            NLP->>Audit: log_event(deny)
-            NLP-->>ClaudeCode: {"permissionDecision":"deny"}
-            ClaudeCode-->>User: PII / injection / secret detected
-        else No findings
-            NLP-->>ClaudeCode: (empty stdout) exit 0
-        end
-    end
-
     rect rgb(248, 240, 255)
-        Note over RateLim,Audit: Hook 3: Rate Limiter (<1ms)
+        Note over RateLim,Audit: Hook 2: Rate Limiter (<1ms)
         ClaudeCode->>RateLim: JSON on stdin
         RateLim->>Audit: Read audit.log for session violations
         RateLim->>RateLim: Count violations in rolling window
@@ -144,23 +111,8 @@ flowchart TD
     J -->|Match| K[DENY - untrusted network]
     J -->|No match| L[ALLOW - no regex match]
 
-    I --> M[Hook 2: llm_filter.py]
-    L --> M
-
-    M --> M1{NLP enabled?}
-    M1 -->|No| M2[ALLOW - NLP disabled]
-    M1 -->|Yes| M3{PII plugin available?}
-    M3 -->|Yes| M4[Run PII detection<br/>presidio / spacy / distilbert]
-    M3 -->|No| M5[Skip PII detection]
-    M4 --> M6[Run supplementary plugins]
-    M5 --> M6
-    M6 --> M7[prompt_injection + sensitive_categories<br/>+ entropy_detector + semantic_intent]
-    M7 --> M8{Any findings above<br/>min_confidence?}
-    M8 -->|Yes| M9[DENY - PII / injection / secret]
-    M8 -->|No| M10[ALLOW - clean]
-
-    M2 --> N[Hook 3: rate_limiter.py]
-    M10 --> N
+    I --> N[Hook 2: rate_limiter.py]
+    L --> N
     N --> N1{Session violations<br/>in rolling window?}
     N1 -->|>= 10 block threshold| N2[DENY - rate limited]
     N1 -->|>= 5 warn threshold| N3[ASK - violation warning]
@@ -177,15 +129,12 @@ flowchart TD
     style F1 fill:#ff6b6b,color:#fff
     style G1 fill:#ff6b6b,color:#fff
     style K fill:#ff6b6b,color:#fff
-    style M9 fill:#ff6b6b,color:#fff
     style N2 fill:#ff6b6b,color:#fff
     style W2 fill:#ff6b6b,color:#fff
     style R2 fill:#ff6b6b,color:#fff
 
     style I fill:#51cf66,color:#fff
     style L fill:#51cf66,color:#fff
-    style M2 fill:#51cf66,color:#fff
-    style M10 fill:#51cf66,color:#fff
     style N4 fill:#51cf66,color:#fff
     style W3 fill:#51cf66,color:#fff
     style R3 fill:#51cf66,color:#fff
@@ -194,28 +143,4 @@ flowchart TD
     style P2 fill:#748ffc,color:#fff
 ```
 
-## NLP Plugin Dispatch
-
-```mermaid
-flowchart LR
-    subgraph "PII Plugins (first available wins)"
-        P1[presidio<br/>~0.4ms<br/>SubMillisecond]
-        P2[spacy<br/>~3ms<br/>EdgeDevice]
-        P3[distilbert<br/>~25ms<br/>HighAccuracy]
-        P1 -.->|fallback| P2
-        P2 -.->|fallback| P3
-    end
-
-    subgraph "Supplementary Plugins (all run always)"
-        S1[prompt_injection<br/>~1ms]
-        S2[sensitive_categories<br/>~1ms]
-        S3[entropy_detector<br/>~1ms]
-        S4[semantic_intent<br/>~1ms]
-    end
-
-    Input[Command text] --> P1
-    Input --> S1
-    Input --> S2
-    Input --> S3
-    Input --> S4
-```
+> NLP plugin dispatch diagrams are available in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro).

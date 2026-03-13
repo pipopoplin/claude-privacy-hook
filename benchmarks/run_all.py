@@ -20,7 +20,6 @@ SUITES = [
     ("Rate Limiter", "bench_rate_limiter.py", False),
     ("Override Resolver", "bench_overrides.py", False),
     ("Audit Logger", "bench_audit_logger.py", False),
-    ("NLP Filter", "bench_nlp_filter.py", True),  # slow=True
 ]
 
 

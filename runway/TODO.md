@@ -274,13 +274,15 @@
     - Old docs (EnforcementModel, TokenManagement, etc.) are obsolete — new strategy from scratch
 
 ### Blocking — must resolve before code separation
-[ ] SeparationPlan.md is empty — needs a code separation plan before §8 can start.
-[ ] Override system scope: free tier = personal overrides only, paid tier = team + managed overrides?
-    Needs decision before code separation can assign override features to tiers.
+[x] SeparationPlan.md — COMPLETE. 4-phase plan with 9 sections covering architecture,
+    file inventory, integration, tier extensibility, degradation, execution steps, and validation.
+[x] Override system scope — RESOLVED:
+    Free tier: overrides for free-tier features only (9 L1 regex filters, output sanitizer, rate limiter)
+    Paid tier: overrides for all features (NLP filters, managed layer, team/fleet overrides)
 
 ### Open — important but not blocking
 [x] NLP plugins are the primary paywall — all NLP features are paid tier
-    (except limited NLP preview for #11 SSN + #12 Credit cards in free tier)
+    (#11 SSN + #12 Credit cards covered by L1 regex in free tier, no NLP needed)
 [ ] How to handle community contributions to paid features?
 [ ] Managed layer: include in paid tier or treat as separate add-on at higher price?
 [ ] What analytics/telemetry (if any) to measure conversion?

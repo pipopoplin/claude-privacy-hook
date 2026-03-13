@@ -1,0 +1,63 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/regex_filter.py \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/filter_rules.json",
+            "timeout": 10,
+            "statusMessage": "Checking command against filter rules..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/rate_limiter.py \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/rate_limiter_config.json",
+            "timeout": 5,
+            "statusMessage": "Checking session rate limits..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/regex_filter.py \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/filter_rules_write.json",
+            "timeout": 10,
+            "statusMessage": "Checking file content against security rules..."
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/regex_filter.py \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/filter_rules_read.json",
+            "timeout": 10,
+            "statusMessage": "Checking file path against security rules..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/output_sanitizer.py \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/output_sanitizer_rules.json",
+            "timeout": 10,
+            "statusMessage": "Sanitizing command output..."
+          }
+        ]
+      }
+    ]
+  }
+}

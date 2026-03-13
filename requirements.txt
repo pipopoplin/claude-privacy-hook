@@ -1,0 +1,7 @@
+# Claude Privacy Hook (Free Tier) — Python Dependencies
+#
+# The free tier hook system (regex_filter, output_sanitizer, rate_limiter,
+# audit_logger, override system) requires NO external dependencies — stdlib only.
+#
+# NLP-based PII detection is available in the Pro tier.
+# See: https://claude-privacy-hook.dev/pro

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "audit_log": "audit.log",
+  "window_seconds": 300,
+  "thresholds": {
+    "warn": 5,
+    "block": 10
+  },
+  "cooldown_seconds": 60,
+  "message_warn": "Multiple security violations detected in this session. Proceed with caution.",
+  "message_block": "Too many security violations. Session is temporarily rate-limited."
+}

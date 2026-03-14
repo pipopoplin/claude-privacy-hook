@@ -1,6 +1,6 @@
 # Plugin System
 
-> **Pro feature** — NLP plugins are available exclusively in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro) ($5/mo per seat, BSL 1.1).
+> **Pro feature** — NLP plugins are available exclusively in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro) (Pro tier, BSL 1.1).
 
 ## What's in Pro
 

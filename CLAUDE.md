@@ -120,4 +120,4 @@ python3 .claude/hooks/override_cli.py add --scope project --rule block_untrusted
 
 ## Pro Tier
 
-NLP-based PII detection (Presidio, spaCy, DistilBERT), managed/IT-enforced overrides, custom NLP plugins, and enhanced audit logging are available via `claude-privacy-hook-pro` ($5/mo per seat).
+NLP-based PII detection (Presidio, spaCy, DistilBERT), managed/IT-enforced overrides, custom NLP plugins, and enhanced audit logging are available via `claude-privacy-hook-pro` (Pro tier).

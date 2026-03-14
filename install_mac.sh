@@ -3,19 +3,17 @@
 # Claude Privacy Hook — Installation Script (macOS)
 # ============================================================================
 #
-# This is a macOS-specific wrapper around install.sh that handles:
+# This is a macOS-specific wrapper around install_linux.sh that handles:
 #   - Homebrew Python detection (brew install python@3.12)
-#   - Xcode Command Line Tools check (needed for some pip builds)
-#   - Apple Silicon vs Intel considerations for PyTorch
+#   - Xcode Command Line Tools check
+#   - Apple Silicon vs Intel detection
 #
 # Usage:
 #   chmod +x install_mac.sh
-#   ./install_mac.sh              # Full install (all NLP plugins)
-#   ./install_mac.sh --core       # Core only (no NLP plugins)
-#   ./install_mac.sh --spacy      # Core + spaCy plugin only
-#   ./install_mac.sh --presidio   # Core + Presidio plugin only
-#   ./install_mac.sh --distilbert # Core + DistilBERT plugin only
+#   ./install_mac.sh
 #
+# The free tier uses stdlib only — no external dependencies needed.
+# NLP-based PII detection is available in the Pro tier.
 # ============================================================================
 
 set -euo pipefail
@@ -105,8 +103,8 @@ ok "Found $PYTHON_VERSION ($(command -v "$PYTHON"))"
 info "Launching main installer..."
 echo ""
 
-# Make sure install.sh is executable
-chmod +x "${SCRIPT_DIR}/install.sh"
+# Make sure install_linux.sh is executable
+chmod +x "${SCRIPT_DIR}/install_linux.sh"
 
 # Forward all arguments
-exec "${SCRIPT_DIR}/install.sh" "$@"
+exec "${SCRIPT_DIR}/install_linux.sh" "$@"

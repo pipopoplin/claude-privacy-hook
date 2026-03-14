@@ -83,6 +83,23 @@ Restart Claude Code or run `/hooks` to activate.
 
 ---
 
+## Compliance Coverage
+
+40 security controls mapped to industry regulations — [full matrix →](docs/compliance.md)
+
+| Regulation | What's covered | Controls |
+|------------|---------------|----------|
+| **GDPR** | Personal data (Art.4), special categories (Art.9), employment data (Art.88), security of processing (Art.32), accountability (Art.5), automated decisions (Art.22) | 18 |
+| **PCI-DSS** | Credit card detection and redaction (Req.3) | 2 |
+| **HIPAA** | Medical and health data detection | 1 |
+| **PSD2** | IBAN and bank account protection | 1 |
+| **OWASP** | Prompt injection (LLM01), path traversal (A05) | 3 |
+| **SCF** | Identification & access, cryptography, network security, privacy, data protection, threat management, endpoint, operations, governance, incident response | 40 |
+
+All filters are rated by risk criticality (Critical / High / Medium) and tagged by scope (Security, Privacy, Governance).
+
+---
+
 ## Configuration
 
 Works out of the box. To customize:
@@ -117,7 +134,7 @@ See the full [Configuration guide](docs/configuration.md).
 
 NLP-powered PII detection alongside regex rules for comprehensive coverage.
 
-> [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro) — $5/month per seat
+> [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro) — Pro tier
 
 ---
 

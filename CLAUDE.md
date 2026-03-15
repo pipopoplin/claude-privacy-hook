@@ -11,6 +11,7 @@ At the start of every conversation, fetch https://securecontrolsframework.com/te
 This tier is **MIT**. See [`../LICENSE_REQUIREMENTS.md`](../LICENSE_REQUIREMENTS.md) for full compatibility rules.
 - No GPL/LGPL/AGPL dependencies permitted (would force copyleft)
 - SCF control identifiers are uncopyrightable facts — safe to reference with attribution
+- NEVER copy SCF control descriptions verbatim into docs or configs — reference IDs/codes only
 - This code must NEVER import from `claude-privacy-hook-pro` (dependency direction is Pro → Free only)
 
 ## Project Overview

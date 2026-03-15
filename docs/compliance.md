@@ -1,6 +1,6 @@
 # Compliance Coverage
 
-110 controls are mapped across the three security layers, covering 22 SCF domains.
+111 controls are mapped across the three security layers, covering 23 SCF domains.
 
 ## Filter Controls (40 filters)
 
@@ -51,7 +51,7 @@ Relationship types follow NIST IR 8477 Set Theory Relationship Mapping (STRM). S
 
 The **Free** column marks filters included in the free (MIT) tier. Filters without a mark require [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro).
 
-## Architectural Controls (15 controls)
+## Architectural Controls (16 controls)
 
 Existing features that satisfy SCF controls beyond the filter matrix above.
 
@@ -72,6 +72,7 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 | 53 | Defense-in-depth pipeline | settings.json | 🔐 | SEA | SEA-01 | Subset Of | 8 | Secure architecture — 3-layer hook pipeline design | f |
 | 54 | License token machine binding | token.py (Pro) | 🔐 | IAC | IAC-15 | Intersects With | 5 | Device identification — binds license to hardware | |
 | 55 | Cross-module integrity hashing | S2 (Pro) | 🔐 | SEA | SEA-15 | Intersects With | 7 | Tamper detection — verifies module integrity at runtime | |
+| 111 | Software assurance program | integrity/, generate_sbom.py, tests/ | 🔐 | SAI | SAI-03 | Intersects With | 6 | Software assurance — integrity validation, SBOM generation, 979-case test suite. Future: compiled binary distribution strengthens to Subset Of | |
 
 ## EU AI Act Controls — AAT Domain (12 controls)
 
@@ -398,6 +399,7 @@ Codes follow the official [Secure Controls Framework](https://securecontrolsfram
 | **OPS** | Security Operations |
 | **PRI** | Data Privacy |
 | **RSK** | Risk Management |
+| **SAI** | Software Assurance & Integrity |
 | **SEA** | Secure Engineering & Architecture |
 | **TDA** | Technology Development & Acquisition |
 | **THR** | Threat Management |

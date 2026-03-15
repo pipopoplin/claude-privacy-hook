@@ -18,6 +18,10 @@ SUITES = [
     ("Rate Limiter", "test_rate_limiter.py"),
     ("Overrides", "test_overrides.py"),
     ("Conftest Infrastructure", "test_conftest.py"),
+    ("Audit Logger", "test_audit_logger.py"),
+    ("Evidence Collector", "test_evidence_collector.py"),
+    ("Breach Report", "test_breach_report.py"),
+    ("Config Validation", "test_config_validation.py"),
 ]
 
 

@@ -969,6 +969,148 @@ def test_no_audit_log_on_pass_through(t: TestRunner):
 # Test cases — Unicode / case insensitivity
 # =====================================================================
 
+# =====================================================================
+# Test cases — Anonymization modes (pseudonymize, hash, redact)
+# =====================================================================
+
+def test_anonymization_pseudonymize_mode(t: TestRunner):
+    """Pseudonymize mode replaces with [PII-{8-char-hash}]."""
+    config = {
+        "rules": [{
+            "name": "pseudo_rule",
+            "action": "redact",
+            "match": "any",
+            "anonymization_mode": "pseudonymize",
+            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+        }]
+    }
+    result = _run_with_config(config, stdout="SSN: 123-45-6789")
+    ok = (result["redacted"]
+          and "123-45-6789" not in result["stdout"]
+          and "[PII-" in result["stdout"]
+          and result["stdout"].count("[PII-") == 1)
+    t.check("Pseudonymize: SSN replaced with [PII-{hash}]", ok, True)
+
+
+def test_anonymization_hash_mode(t: TestRunner):
+    """Hash mode replaces with sha256:{full-hash}."""
+    config = {
+        "rules": [{
+            "name": "hash_rule",
+            "action": "redact",
+            "match": "any",
+            "anonymization_mode": "hash",
+            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+        }]
+    }
+    result = _run_with_config(config, stdout="SSN: 123-45-6789")
+    ok = (result["redacted"]
+          and "123-45-6789" not in result["stdout"]
+          and "sha256:" in result["stdout"])
+    t.check("Hash: SSN replaced with sha256:{hash}", ok, True)
+
+
+def test_anonymization_redact_mode_default(t: TestRunner):
+    """Default (redact) mode uses [REDACTED]."""
+    config = {
+        "rules": [{
+            "name": "redact_rule",
+            "action": "redact",
+            "match": "any",
+            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+        }]
+    }
+    result = _run_with_config(config, stdout="SSN: 123-45-6789")
+    ok = (result["redacted"]
+          and "123-45-6789" not in result["stdout"]
+          and "[REDACTED]" in result["stdout"])
+    t.check("Redact (default): SSN replaced with [REDACTED]", ok, True)
+
+
+def test_anonymization_pseudonymize_deterministic(t: TestRunner):
+    """Same input always produces same pseudonym token."""
+    import hashlib
+    config = {
+        "rules": [{
+            "name": "pseudo_determ",
+            "action": "redact",
+            "match": "any",
+            "anonymization_mode": "pseudonymize",
+            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+        }]
+    }
+    result1 = _run_with_config(config, stdout="SSN: 123-45-6789")
+    result2 = _run_with_config(config, stdout="SSN: 123-45-6789")
+    # Both should produce the same token
+    expected_token = hashlib.sha256("123-45-6789".encode()).hexdigest()[:8]
+    expected = f"[PII-{expected_token}]"
+    ok = (expected in result1["stdout"] and expected in result2["stdout"])
+    t.check("Pseudonymize: deterministic — same input same token", ok, True)
+
+
+def test_anonymization_hash_full_sha256(t: TestRunner):
+    """Hash mode produces full 64-char SHA-256."""
+    import hashlib
+    config = {
+        "rules": [{
+            "name": "hash_full",
+            "action": "redact",
+            "match": "any",
+            "anonymization_mode": "hash",
+            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+        }]
+    }
+    result = _run_with_config(config, stdout="SSN: 123-45-6789")
+    expected_hash = hashlib.sha256("123-45-6789".encode()).hexdigest()
+    ok = result["redacted"] and f"sha256:{expected_hash}" in result["stdout"]
+    t.check("Hash: produces full 64-char SHA-256", ok, True)
+
+
+def test_anonymization_unknown_mode_defaults_redact(t: TestRunner):
+    """Unknown anonymization_mode falls back to [REDACTED]."""
+    config = {
+        "rules": [{
+            "name": "unknown_mode",
+            "action": "redact",
+            "match": "any",
+            "anonymization_mode": "unknown_value",
+            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+        }]
+    }
+    result = _run_with_config(config, stdout="SSN: 123-45-6789")
+    ok = result["redacted"] and "[REDACTED]" in result["stdout"]
+    t.check("Unknown anonymization_mode defaults to [REDACTED]", ok, True)
+
+
+def test_anonymization_per_rule_config(t: TestRunner):
+    """Different rules can have different anonymization modes."""
+    config = {
+        "rules": [
+            {
+                "name": "rule_pseudo",
+                "action": "redact",
+                "match": "any",
+                "anonymization_mode": "pseudonymize",
+                "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+            },
+            {
+                "name": "rule_hash",
+                "action": "redact",
+                "match": "any",
+                "anonymization_mode": "hash",
+                "patterns": [{"pattern": r"sk-ant-[a-zA-Z0-9\-]+", "label": "API key"}],
+            },
+        ]
+    }
+    result = _run_with_config(config, stdout="SSN: 123-45-6789 key=sk-ant-abc123def")
+    ok = (result["redacted"]
+          and "[PII-" in result["stdout"]
+          and "sha256:" in result["stdout"]
+          and "123-45-6789" not in result["stdout"]
+          and "sk-ant-" not in result["stdout"])
+    t.check("Per-rule: pseudonymize SSN + hash API key", ok, True)
+
+
 def test_case_insensitive_redaction(t: TestRunner):
     """Patterns are case-insensitive (re.IGNORECASE)."""
     # AWS key pattern is uppercase, test mixed case
@@ -1070,6 +1212,15 @@ def main():
     t.section("Unicode / case insensitivity")
     test_case_insensitive_redaction(t)
     test_unicode_normalization(t)
+
+    t.section("Anonymization modes")
+    test_anonymization_pseudonymize_mode(t)
+    test_anonymization_hash_mode(t)
+    test_anonymization_redact_mode_default(t)
+    test_anonymization_pseudonymize_deterministic(t)
+    test_anonymization_hash_full_sha256(t)
+    test_anonymization_unknown_mode_defaults_redact(t)
+    test_anonymization_per_rule_config(t)
 
     sys.exit(t.summary())
 

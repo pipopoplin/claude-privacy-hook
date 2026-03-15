@@ -1,5 +1,7 @@
 # Architecture
 
+This system implements a Security, Compliance & Resilience Management System (SCRMS) through a three-layer hook pipeline. Filter configs are **living control sets** — declarative JSON policies updated without code changes. The override system provides **change management** for controlled exceptions. The audit log produces **evidence of control effectiveness** for compliance reporting.
+
 ## Hook Pipeline
 
 Hooks fire at different stages depending on the tool. All hooks log blocked/redacted events to `audit.log` via the audit logger.
@@ -15,6 +17,53 @@ Write/Edit   → regex_filter.py (filter_rules_write.json, 8 rules) → execute 
 Read         → regex_filter.py (filter_rules_read.json, 1 rule)   → execute or block
 ```
 
+## Data Flow — Privacy Perspective
+
+Personal data can enter the hook pipeline at three points. At each point, controls detect, block, or redact before the data can leave the system boundary.
+
+```
+                          SYSTEM BOUNDARY (developer machine)
+                         ┌─────────────────────────────────────┐
+                         │                                     │
+  PD enters via          │  ┌─────────────┐                   │
+  command input  ───────►│  │ normalize   │  Unicode NFKC,    │
+  (Bash tool)            │  │ (hook_utils)│  homoglyph map,   │
+                         │  └──────┬──────┘  zero-width strip │
+                         │         ▼                           │
+                         │  ┌─────────────┐   Match? ──► DENY │  PD blocked
+                         │  │ regex_filter│          ──► ASK  │  (never leaves)
+                         │  │ (18 rules)  │                   │
+                         │  └──────┬──────┘   No match        │
+                         │         ▼                    ▼      │
+  PD enters via          │  ┌─────────────┐   ┌──────────┐   │
+  file content  ────────►│  │ write filter│   │ execute  │   │
+  (Write/Edit tool)      │  │ (8 rules)   │   │ command  │   │
+                         │  └─────────────┘   └────┬─────┘   │
+                         │                         ▼          │
+  PD enters via          │                  ┌─────────────┐   │
+  command output ◄───────│──────────────────│  output     │   │
+  (stdout/stderr)        │                  │  sanitizer  │   │
+                         │                  │  (7 rules)  │   │
+                         │                  └──────┬──────┘   │
+                         │                         ▼          │
+                         │  PD replaced with [REDACTED] or    │
+                         │  [PII-token] (pseudonymize mode)   │
+                         │                                     │
+                         │  ┌─────────────┐                   │
+                         │  │ audit_logger│  Stores ONLY:     │
+                         │  │ (JSONL)     │  - SHA-256 hash   │
+                         │  └─────────────┘  - pattern labels │
+                         │                   - SCF metadata   │
+                         │    (NO raw PD in audit log)        │
+                         └─────────────────────────────────────┘
+```
+
+**Key privacy guarantees:**
+- PD detected at input is blocked before execution — it never reaches the network or filesystem
+- PD detected in output is redacted before the developer sees it
+- The audit log stores command hashes and label names only — never raw personal data
+- With `HOOK_AUDIT_LOG_MINIMIZE=1`, even command previews are omitted
+
 ## Regex Filter (Layer 1)
 
 Fast, deterministic regex engine with Unicode normalization (NFKC), homoglyph detection (Cyrillic/Greek), and zero-width character stripping. Reads any JSON rule config, evaluates rules top-to-bottom — first match wins.
@@ -23,7 +72,7 @@ All deny rules are placed before the allow rule to ensure sensitive data is bloc
 
 **File:** `.claude/hooks/regex_filter.py`
 
-### Bash Rules (`filter_rules.json` — 18 rules, ~180 patterns)
+### Bash Rules (`filter_rules.json` — 18 rules, ~180 patterns, living control set)
 
 | Rule | Action | What it catches |
 |------|--------|----------------|
@@ -64,11 +113,11 @@ Counts deny/ask violations in a rolling 5-minute window per session. Escalates: 
 
 **File:** `.claude/hooks/rate_limiter.py`
 
-## Audit Logger
+## Audit Logger (Evidence of Control Effectiveness)
 
-JSONL audit log writer. All hooks call `audit_logger.log_event()` on block/redact. Logs: timestamp, filter name, rule, action, matched patterns, command hash (SHA256), redacted command preview, session ID.
+JSONL audit log writer providing evidence of control effectiveness. All hooks call `audit_logger.log_event()` on block/redact. Logs: timestamp, filter name, rule, action, matched patterns, command hash (SHA256), redacted command preview, session ID, SCF control metadata.
 
-Override log path via `HOOK_AUDIT_LOG` env var.
+Override log path via `HOOK_AUDIT_LOG` env var. Use `evidence_collector.py` to generate compliance reports grouped by SCF control.
 
 **File:** `.claude/hooks/audit_logger.py`
 
@@ -78,9 +127,9 @@ Shared Unicode normalization (NFKC, homoglyphs, zero-width character stripping) 
 
 **File:** `.claude/hooks/hook_utils.py`
 
-## Override System
+## Override System (Change Management)
 
-Two-layer override system allowing exceptions without editing rule files. User overrides (`~/.claude/hooks/config_overrides.json`) take priority over project overrides (`.claude/hooks/config_overrides.json`). Non-overridable rules cannot be bypassed.
+Two-layer change management system allowing controlled exceptions without editing rule files. User overrides (`~/.claude/hooks/config_overrides.json`) take priority over project overrides (`.claude/hooks/config_overrides.json`). Non-overridable rules cannot be bypassed. Overrides support expiry dates and are logged to the audit trail.
 
 **Files:** `.claude/hooks/override_resolver.py`, `.claude/hooks/override_cli.py`, `.claude/hooks/config_overrides.json`
 
@@ -101,12 +150,13 @@ claude-privacy-hook/
 │       ├── hook_utils.py       # Shared: Unicode normalization, field resolution
 │       ├── override_resolver.py# Override loading and checking
 │       ├── override_cli.py     # Override management CLI
-│       ├── filter_rules.json   # Bash rules (18 rules, ~180 patterns)
-│       ├── filter_rules_write.json  # Write/Edit rules
-│       ├── filter_rules_read.json   # Read rules
-│       ├── output_sanitizer_rules.json # Redaction rules
+│       ├── filter_rules.json   # Living control set: Bash (18 rules, ~180 patterns)
+│       ├── filter_rules_write.json  # Living control set: Write/Edit
+│       ├── filter_rules_read.json   # Living control set: Read
+│       ├── output_sanitizer_rules.json # Living control set: output redaction
 │       ├── rate_limiter_config.json # Rate limiter config
-│       └── config_overrides.json    # Project-level overrides
+│       ├── evidence_collector.py    # SCF compliance evidence reporting
+│       └── config_overrides.json    # Change management: project-level overrides
 ├── tests/                      # 5 test suites, 979 cases
 ├── benchmarks/                 # Benchmark suites
 └── docs/                       # Documentation

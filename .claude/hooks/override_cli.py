@@ -44,6 +44,84 @@ def _save_overrides(path: str, data: dict) -> None:
         f.write("\n")
 
 
+def _log_change(action: str, override_name: str, scope: str, rule_name: str = "",
+                 details: str = "", risk_score: int = 0, risk_level: str = "") -> None:
+    """Log an override configuration change to the audit log."""
+    try:
+        hooks_dir = os.path.dirname(os.path.abspath(__file__))
+        from audit_logger import log_event
+        log_event(
+            log_dir=hooks_dir,
+            filter_name="override_cli",
+            rule_name=override_name,
+            action=action,
+            matched=[f"scope={scope}", f"rule={rule_name}", f"risk={risk_score}/{risk_level}"] if risk_score else [f"scope={scope}", f"rule={rule_name}"],
+            command=details,
+            override_name=override_name,
+            override_source=scope,
+        )
+    except Exception:
+        pass  # Best-effort — never block CLI on audit failure
+
+
+# --- Risk scoring ---
+
+_CLASSIFICATION_SCORES = {"restricted": 4, "confidential": 3, "internal": 2, "public": 1}
+_RISK_LEVEL_SCORES = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+_RISK_LABELS = [(8, "critical"), (6, "high"), (4, "medium"), (0, "low")]
+
+
+def _calculate_risk_score(rule: dict, scope: str, expires: str | None) -> tuple[int, str]:
+    """Calculate a risk score (1-10) for an override request.
+
+    Factors:
+        data_classification — restricted=4, confidential=3, internal=2, public=1
+        scf.risk_level     — critical=4, high=3, medium=2, low=1
+        scope              — project=+1 (team-wide), user=0 (personal)
+        expires            — no expiry=+1, >90 days=+1, <=90 days=0
+
+    Returns (score, level) where level is critical/high/medium/low.
+    """
+    score = 0
+
+    # Data classification factor
+    classification = rule.get("data_classification", "internal")
+    score += _CLASSIFICATION_SCORES.get(classification, 2)
+
+    # SCF risk level factor
+    scf = rule.get("scf", {})
+    risk_level = scf.get("risk_level", "medium")
+    score += _RISK_LEVEL_SCORES.get(risk_level, 2)
+
+    # Scope factor — project overrides affect the whole team
+    if scope == "project":
+        score += 1
+
+    # Expiry factor — no expiry or long expiry is riskier
+    if not expires:
+        score += 1
+    else:
+        try:
+            from datetime import datetime
+            days = (datetime.strptime(expires, "%Y-%m-%d").date() - date.today()).days
+            if days > 90:
+                score += 1
+        except ValueError:
+            pass
+
+    # Clamp to 1-10
+    score = max(1, min(10, score))
+
+    # Map score to label
+    level = "low"
+    for threshold, label in _RISK_LABELS:
+        if score >= threshold:
+            level = label
+            break
+
+    return score, level
+
+
 def _load_rules() -> dict[str, dict]:
     """Load all rule files and return a dict of rule_name -> rule."""
     hooks_dir = os.path.dirname(os.path.abspath(__file__))
@@ -101,7 +179,24 @@ def cmd_add(args: argparse.Namespace) -> int:
     data["overrides"].append(override)
     _save_overrides(path, data)
 
+    # Risk scoring
+    rules = _load_rules()
+    rule = rules.get(args.rule, {})
+    risk_score, risk_level = _calculate_risk_score(rule, args.scope, args.expires)
+
     print(f"Added override '{name}' to {args.scope} config: {path}")
+    print(f"  Risk score: {risk_score}/10 ({risk_level})")
+    if risk_score >= 8:
+        print(f"  WARNING: High-risk override — consider adding an expiry date and reason.")
+
+    # Audit trail
+    details = f"add scope={args.scope} rule={args.rule} pattern={args.pattern} label={args.label}"
+    if args.expires:
+        details += f" expires={args.expires}"
+    if args.reason:
+        details += f" reason={args.reason}"
+    _log_change("override_add", name, args.scope, args.rule, details, risk_score, risk_level)
+
     return 0
 
 
@@ -144,6 +239,8 @@ def cmd_remove(args: argparse.Namespace) -> int:
     data = _load_overrides(path)
 
     original_len = len(data["overrides"])
+    # Capture the removed override for audit
+    removed = [o for o in data["overrides"] if o.get("name") == args.name]
     data["overrides"] = [o for o in data["overrides"] if o.get("name") != args.name]
 
     if len(data["overrides"]) == original_len:
@@ -152,6 +249,12 @@ def cmd_remove(args: argparse.Namespace) -> int:
 
     _save_overrides(path, data)
     print(f"Removed override '{args.name}' from {args.scope} config.")
+
+    # Audit trail
+    rule_name = removed[0].get("rule_name", "") if removed else ""
+    _log_change("override_remove", args.name, args.scope, rule_name,
+                f"remove scope={args.scope} name={args.name} rule={rule_name}")
+
     return 0
 
 

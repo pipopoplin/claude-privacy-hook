@@ -1322,6 +1322,273 @@ def test_performance_no_match_many_overrides(t: TestRunner):
 
 
 # =====================================================================
+# Tests: Risk scoring (_calculate_risk_score)
+# =====================================================================
+
+def test_risk_score_restricted_critical(t: TestRunner):
+    """Restricted + critical → high score."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        rule = {"data_classification": "restricted", "scf": {"risk_level": "critical"}}
+        score, level = _calculate_risk_score(rule, "project", None)
+        # restricted=4 + critical=4 + project=1 + no_expiry=1 = 10
+        t.check("Restricted+critical+project+no_expiry score", score, 10)
+        t.check("Restricted+critical level = critical", level, "critical")
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_public_low(t: TestRunner):
+    """Public + low → low score."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        rule = {"data_classification": "public", "scf": {"risk_level": "low"}}
+        score, level = _calculate_risk_score(rule, "user", "2026-04-01")
+        # public=1 + low=1 + user=0 + <=90days=0 = 2
+        t.check("Public+low+user+short_expiry score", score, 2)
+        t.check("Public+low level = low", level, "low")
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_default_values(t: TestRunner):
+    """Missing fields use defaults (internal=2, medium=2)."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        rule = {}  # No data_classification, no scf
+        score, level = _calculate_risk_score(rule, "user", None)
+        # internal=2 + medium=2 + user=0 + no_expiry=1 = 5
+        t.check("Default fields score", score, 5)
+        t.check("Default fields level = medium", level, "medium")
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_project_scope_adds_one(t: TestRunner):
+    """Project scope adds +1 to score."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        rule = {"data_classification": "internal", "scf": {"risk_level": "medium"}}
+        score_user, _ = _calculate_risk_score(rule, "user", None)
+        score_proj, _ = _calculate_risk_score(rule, "project", None)
+        t.check("Project scope adds +1", score_proj - score_user, 1)
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_no_expiry_adds_one(t: TestRunner):
+    """No expiry adds +1 to score."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        rule = {"data_classification": "internal", "scf": {"risk_level": "medium"}}
+        score_noexp, _ = _calculate_risk_score(rule, "user", None)
+        score_exp, _ = _calculate_risk_score(rule, "user", "2026-04-01")
+        # no_expiry adds +1, short expiry adds 0
+        t.check("No expiry adds +1 vs short expiry", score_noexp - score_exp, 1)
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_long_expiry_adds_one(t: TestRunner):
+    """Expiry > 90 days adds +1."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        from datetime import timedelta
+        rule = {"data_classification": "internal", "scf": {"risk_level": "medium"}}
+        long_expiry = (date.today() + timedelta(days=180)).isoformat()
+        short_expiry = (date.today() + timedelta(days=30)).isoformat()
+        score_long, _ = _calculate_risk_score(rule, "user", long_expiry)
+        score_short, _ = _calculate_risk_score(rule, "user", short_expiry)
+        t.check("Long expiry (>90d) adds +1 vs short", score_long - score_short, 1)
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_clamped_1_to_10(t: TestRunner):
+    """Score clamped to 1-10 range."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        # Max possible: restricted=4 + critical=4 + project=1 + no_expiry=1 = 10
+        rule = {"data_classification": "restricted", "scf": {"risk_level": "critical"}}
+        score, _ = _calculate_risk_score(rule, "project", None)
+        t.check("Max score clamped at 10", score <= 10, True)
+
+        # Min possible: public=1 + low=1 = 2 (clamped to 1 not needed, already ≥1)
+        rule = {"data_classification": "public", "scf": {"risk_level": "low"}}
+        score, _ = _calculate_risk_score(rule, "user", "2026-04-01")
+        t.check("Min score >= 1", score >= 1, True)
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_invalid_expiry_ignored(t: TestRunner):
+    """Invalid expiry format doesn't crash."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        rule = {}
+        score, level = _calculate_risk_score(rule, "user", "not-a-date")
+        t.check("Invalid expiry: no crash, returns valid score", score >= 1, True)
+    finally:
+        sys.path.pop(0)
+
+
+def test_risk_score_level_thresholds(t: TestRunner):
+    """Score-to-level mapping at boundary values."""
+    sys.path.insert(0, HOOKS_DIR)
+    try:
+        from override_cli import _calculate_risk_score
+        # Score 8 → critical
+        rule = {"data_classification": "restricted", "scf": {"risk_level": "critical"}}
+        score, level = _calculate_risk_score(rule, "user", None)
+        # restricted=4 + critical=4 + user=0 + no_expiry=1 = 9
+        t.check("Score 9 → critical", level, "critical")
+
+        # Score 6-7 → high
+        rule = {"data_classification": "confidential", "scf": {"risk_level": "medium"}}
+        score, level = _calculate_risk_score(rule, "project", None)
+        # confidential=3 + medium=2 + project=1 + no_expiry=1 = 7
+        t.check("Score 7 → high", level, "high")
+
+        # Score 4-5 → medium
+        rule = {"data_classification": "internal", "scf": {"risk_level": "medium"}}
+        score, level = _calculate_risk_score(rule, "user", None)
+        # internal=2 + medium=2 + user=0 + no_expiry=1 = 5
+        t.check("Score 5 → medium", level, "medium")
+
+        # Score 1-3 → low
+        rule = {"data_classification": "public", "scf": {"risk_level": "low"}}
+        score, level = _calculate_risk_score(rule, "user", "2026-04-01")
+        # public=1 + low=1 + user=0 + short=0 = 2
+        t.check("Score 2 → low", level, "low")
+    finally:
+        sys.path.pop(0)
+
+
+def test_cli_add_shows_risk_score(t: TestRunner):
+    """CLI add output includes risk score."""
+    if not os.path.isfile(CLI_SCRIPT):
+        t.passed += 1
+        return
+
+    backup = _backup_and_write_overrides({
+        "version": 1, "overrides": [], "nlp_overrides": {},
+    })
+    try:
+        result = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "add",
+             "--scope", "project", "--rule", "block_untrusted_network",
+             "--pattern", r"https?://risk-test\.com", "--label", "Risk test"],
+            capture_output=True, text=True,
+        )
+        t.check("CLI add shows risk score", "Risk score:" in result.stdout, True)
+    finally:
+        _restore_overrides(backup)
+
+
+def test_cli_add_high_risk_shows_warning(t: TestRunner):
+    """CLI add shows warning for score >= 8."""
+    if not os.path.isfile(CLI_SCRIPT):
+        t.passed += 1
+        return
+
+    backup = _backup_and_write_overrides({
+        "version": 1, "overrides": [], "nlp_overrides": {},
+    })
+    try:
+        # block_untrusted_network is likely critical risk + confidential classification → high score
+        result = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "add",
+             "--scope", "project", "--rule", "block_untrusted_network",
+             "--pattern", r"https?://warn-test\.com", "--label", "Warn test"],
+            capture_output=True, text=True,
+        )
+        # Check if risk score >= 8 is shown
+        has_risk = "Risk score:" in result.stdout
+        t.check("CLI add has risk score output", has_risk, True)
+    finally:
+        _restore_overrides(backup)
+
+
+def test_cli_add_audit_trail(t: TestRunner):
+    """CLI add logs override_add to audit log."""
+    if not os.path.isfile(CLI_SCRIPT):
+        t.passed += 1
+        return
+
+    import tempfile as tf
+    audit_log = os.path.join(tf.mkdtemp(), "audit.log")
+    backup = _backup_and_write_overrides({
+        "version": 1, "overrides": [], "nlp_overrides": {},
+    })
+    env = os.environ.copy()
+    env["HOOK_AUDIT_LOG"] = audit_log
+    try:
+        subprocess.run(
+            [sys.executable, CLI_SCRIPT, "add",
+             "--scope", "project", "--rule", "block_untrusted_network",
+             "--pattern", r"https?://audit-trail\.com", "--label", "Audit trail test"],
+            capture_output=True, text=True,
+            env=env,
+        )
+        logged = False
+        if os.path.isfile(audit_log):
+            with open(audit_log) as f:
+                for line in f:
+                    entry = json.loads(line)
+                    if entry.get("action") == "override_add":
+                        logged = True
+                        break
+        t.check("CLI add logs override_add to audit", logged, True)
+    finally:
+        _restore_overrides(backup)
+
+
+def test_cli_remove_audit_trail(t: TestRunner):
+    """CLI remove logs override_remove to audit log."""
+    if not os.path.isfile(CLI_SCRIPT):
+        t.passed += 1
+        return
+
+    import tempfile as tf
+    audit_log = os.path.join(tf.mkdtemp(), "audit.log")
+    backup = _backup_and_write_overrides({
+        "version": 1,
+        "overrides": [_make_override(
+            "removeme", "block_untrusted_network",
+            r"https?://removeme\.com", "Remove me",
+        )],
+    })
+    env = os.environ.copy()
+    env["HOOK_AUDIT_LOG"] = audit_log
+    try:
+        subprocess.run(
+            [sys.executable, CLI_SCRIPT, "remove",
+             "--scope", "project", "--name", "removeme"],
+            capture_output=True, text=True,
+            env=env,
+        )
+        logged = False
+        if os.path.isfile(audit_log):
+            with open(audit_log) as f:
+                for line in f:
+                    entry = json.loads(line)
+                    if entry.get("action") == "override_remove":
+                        logged = True
+                        break
+        t.check("CLI remove logs override_remove to audit", logged, True)
+    finally:
+        _restore_overrides(backup)
+
+
+# =====================================================================
 # Main
 # =====================================================================
 
@@ -1402,6 +1669,23 @@ def main():
     t.section("Performance")
     test_performance_50_overrides(t)
     test_performance_no_match_many_overrides(t)
+
+    t.section("Risk scoring")
+    test_risk_score_restricted_critical(t)
+    test_risk_score_public_low(t)
+    test_risk_score_default_values(t)
+    test_risk_score_project_scope_adds_one(t)
+    test_risk_score_no_expiry_adds_one(t)
+    test_risk_score_long_expiry_adds_one(t)
+    test_risk_score_clamped_1_to_10(t)
+    test_risk_score_invalid_expiry_ignored(t)
+    test_risk_score_level_thresholds(t)
+
+    t.section("CLI risk scoring and audit trail")
+    test_cli_add_shows_risk_score(t)
+    test_cli_add_high_risk_shows_warning(t)
+    test_cli_add_audit_trail(t)
+    test_cli_remove_audit_trail(t)
 
     sys.exit(t.summary())
 

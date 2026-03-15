@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Startup: SCF License Verification (MANDATORY)
+
+At the start of every conversation, fetch https://securecontrolsframework.com/terms-conditions/ and verify the license is still **CC BY-ND 4.0**. Compare against the baseline in [`../LICENSE_REQUIREMENTS.md`](../LICENSE_REQUIREMENTS.md). If changed, STOP and alert the user before modifying any SCF-referencing files.
+
+## Licensing
+
+This tier is **MIT**. See [`../LICENSE_REQUIREMENTS.md`](../LICENSE_REQUIREMENTS.md) for full compatibility rules.
+- No GPL/LGPL/AGPL dependencies permitted (would force copyleft)
+- SCF control identifiers are uncopyrightable facts — safe to reference with attribution
+- NEVER copy SCF control descriptions verbatim into docs or configs — reference IDs/codes only
+- This code must NEVER import from `claude-privacy-hook-pro` (dependency direction is Pro → Free only)
+
 ## Project Overview
 
 Claude Code hook system with three complementary security layers:
@@ -23,9 +35,9 @@ Override priority: user > project. Non-overridable rules cannot be bypassed. Man
 
 ```bash
 # --- Installation ---
-./install.sh              # Linux: install
-./install_mac.sh          # macOS: checks Xcode CLT + Homebrew, delegates to install.sh
-install.bat               # Windows: install
+./install_linux.sh        # Linux: install
+./install_mac.sh          # macOS: checks Xcode CLT + Homebrew, delegates to install_linux.sh
+install_win.bat           # Windows: install
 
 # --- Tests ---
 python3 tests/run_all.py                # Run all 979 tests across 5 suites
@@ -43,6 +55,21 @@ python3 benchmarks/bench_rate_limiter.py       # Rate limiter + log parsing
 python3 benchmarks/bench_overrides.py          # Override resolver
 python3 benchmarks/bench_hook_utils.py         # Unicode normalization + field resolution
 python3 benchmarks/bench_audit_logger.py       # Audit log write performance
+
+# --- Compliance evidence ---
+python3 .claude/hooks/evidence_collector.py                     # Full text report
+python3 .claude/hooks/evidence_collector.py --format json       # JSON output
+python3 .claude/hooks/evidence_collector.py --domain IAC        # Filter by SCF domain
+python3 .claude/hooks/evidence_collector.py --since 2026-03-01  # Since date
+python3 .claude/hooks/evidence_collector.py --overrides         # Include override activity
+python3 .claude/hooks/evidence_collector.py --cross-session     # Cross-session hot rule analysis
+
+# --- Breach notification ---
+python3 .claude/hooks/breach_report.py                          # Breach candidates (text)
+python3 .claude/hooks/breach_report.py --format markdown        # Markdown report
+python3 .claude/hooks/breach_report.py --format json            # JSON report
+python3 .claude/hooks/breach_report.py --threshold 5            # Custom threshold
+python3 .claude/hooks/breach_report.py --session SESSION_ID     # Specific session
 
 # --- Direct hook testing ---
 echo '{"tool_name":"Bash","tool_input":{"command":"curl https://example.com"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules.json

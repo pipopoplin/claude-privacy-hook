@@ -12,7 +12,7 @@ AI coding assistants are powerful — but they can accidentally leak API keys, s
 
 ## The Solution
 
-**claude-privacy-hook** intercepts every tool action Claude Code takes — commands, file reads, file writes — and blocks anything that could expose sensitive data. It works silently in the background with zero configuration needed.
+**claude-privacy-hook** intercepts every tool action Claude Code takes — commands, file reads, file writes — and blocks anything that could expose sensitive data. It implements a Security, Compliance & Resilience Management System (SCRMS) with living control sets, change management, and evidence of control effectiveness — all running silently in the background with zero configuration needed.
 
 ### What it catches
 
@@ -33,11 +33,11 @@ Three independent security layers run on every action — total latency under 1m
 
 | Layer | What it does |
 |-------|-------------|
-| **Regex filter** | Pattern-matches 180+ known credential formats, attack signatures, and sensitive data (18 rules) |
+| **Regex filter** | Living control set — pattern-matches 180+ known credential formats, attack signatures, and sensitive data (18 rules) |
 | **Rate limiter** | Escalates when too many suspicious actions happen in a session |
 | **Output sanitizer** | Redacts sensitive data from command results after execution |
 
-All blocked events are written to an audit log for review and compliance.
+All blocked events are written to an audit log — evidence of control effectiveness for review and compliance.
 
 ---
 
@@ -77,7 +77,7 @@ Restart Claude Code or run `/hooks` to activate.
 | **Zero trust** | Every action is checked, not just the ones you think of |
 | **No workflow disruption** | Trusted tools and endpoints are pre-approved |
 | **Defense in depth** | Three independent layers — no single bypass compromises everything |
-| **Compliance-ready** | Maps to [40 security controls](docs/compliance.md) across GDPR, HIPAA, PCI-DSS, and OWASP |
+| **Compliance-ready** | Maps to [110 security controls](docs/compliance.md) across 22 SCF domains, GDPR, EU AI Act, DORA, NIS2, SOC 2, and more |
 | **Fully auditable** | Every blocked action logged with timestamps, patterns, and command hashes |
 | **No cloud dependency** | Everything runs locally, nothing phones home |
 
@@ -85,16 +85,20 @@ Restart Claude Code or run `/hooks` to activate.
 
 ## Compliance Coverage
 
-40 security controls mapped to industry regulations — [full matrix →](docs/compliance.md)
+110 security controls across 22 SCF domains mapped to industry regulations — [full matrix →](docs/compliance.md)
 
-| Regulation | What's covered | Controls |
-|------------|---------------|----------|
-| **GDPR** | Personal data (Art.4), special categories (Art.9), employment data (Art.88), security of processing (Art.32), accountability (Art.5), automated decisions (Art.22) | 18 |
+| Regulation / Framework | What's covered | Controls |
+|------------------------|---------------|----------|
+| **SCF** | 22 domains: IAC, CRY, NET, PRI, DCH, THR, GOV, IRO, MON, AAT, CHG, CFG, SEA, TDA, and more | 110 |
+| **GDPR** | Personal data (Art.4), special categories (Art.9), security (Art.32), accountability (Art.5), breach notification (Art.33), transfers (Art.44) | 28 |
+| **EU AI Act** | Risk management (Art.9), human oversight (Art.14), record-keeping (Art.12), transparency (Art.52), incident reporting (Art.73) | 12 |
+| **ISO 42001** | AI management system (§4), risk assessment (§6), change management, data quality (§A.7), verification (§A.6) | 8 |
+| **DORA** | ICT governance (Art.5), security (Art.9), monitoring (Art.10), incident response (Art.14/17) | 6 |
+| **NIS2** | Risk management (Art.21), incident handling, supply chain (Art.21.2d), cryptography, network security | 6 |
+| **SOC 2** | CC1-CC9, P1-P8, A1, C1 — governance, access, operations, change management, privacy, availability | 4 |
 | **PCI-DSS** | Credit card detection and redaction (Req.3) | 2 |
 | **HIPAA** | Medical and health data detection | 1 |
-| **PSD2** | IBAN and bank account protection | 1 |
 | **OWASP** | Prompt injection (LLM01), path traversal (A05) | 3 |
-| **SCF** | Identification & access, cryptography, network security, privacy, data protection, threat management, endpoint, operations, governance, incident response | 40 |
 
 All filters are rated by risk criticality (Critical / High / Medium) and tagged by scope (Security, Privacy, Governance).
 
@@ -107,7 +111,7 @@ Works out of the box. To customize:
 - **Allow a trusted endpoint** — add a URL pattern to `filter_rules.json`, or use the [override CLI](docs/configuration.md#override-cli)
 - **Disable a rule** — set `"enabled": false` in the rule config
 
-Teams can add exceptions with the [two-layer override system](docs/configuration.md#override-system) — no need to edit rule files.
+Teams can add exceptions with the [two-layer change management system](docs/configuration.md#override-system) — no need to edit rule files.
 
 See the full [Configuration guide](docs/configuration.md).
 
@@ -144,7 +148,7 @@ NLP-powered PII detection alongside regex rules for comprehensive coverage.
 |----------|-------------|
 | [Architecture](docs/architecture.md) | Hook pipeline internals, layer details, project structure |
 | [Configuration](docs/configuration.md) | Rule format, override system, all options |
-| [Compliance](docs/compliance.md) | 40 security controls mapped to GDPR, HIPAA, PCI-DSS, OWASP |
+| [Compliance](docs/compliance.md) | 110 security controls across 22 SCF domains, GDPR, EU AI Act, DORA, NIS2, SOC 2 |
 | [Performance](docs/performance.md) | Latency and throughput benchmarks for every component |
 | [Testing](docs/testing.md) | 979 tests across 5 suites, how to run and add tests |
 | [Diagrams](docs/sequence-diagram.md) | Visual pipeline sequence and decision flow |

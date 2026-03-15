@@ -6,6 +6,9 @@ Stores command hashes (not full commands) plus redacted previews.
 Rotation policy (configurable via env vars):
     HOOK_AUDIT_LOG_MAX_BYTES   — rotate when file exceeds this size (default 10 MB)
     HOOK_AUDIT_LOG_BACKUP_COUNT — number of rotated files to keep (default 5)
+
+Data minimization (DPMP P3.2 / DCH-18.2):
+    HOOK_AUDIT_LOG_MINIMIZE=1  — omit command_preview, strip matched text from labels
 """
 
 import hashlib
@@ -111,16 +114,23 @@ def log_event(
         os.path.join(log_dir, "audit.log"),
     )
 
+    minimize = os.environ.get("HOOK_AUDIT_LOG_MINIMIZE", "") == "1"
+
     entry = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
         "filter": filter_name,
         "rule_name": rule_name,
         "action": action,
-        "matched_patterns": matched[:10],  # Cap to avoid huge entries
+        "matched_patterns": (
+            [label.split(":")[0] if ":" in label else label for label in matched[:10]]
+            if minimize else matched[:10]
+        ),
         "command_hash": "sha256:" + hashlib.sha256(command.encode()).hexdigest(),
-        "command_preview": _redact_preview(command, matched),
         "session_id": session_id,
     }
+
+    if not minimize:
+        entry["command_preview"] = _redact_preview(command, matched)
 
     if override_name:
         entry["override_name"] = override_name

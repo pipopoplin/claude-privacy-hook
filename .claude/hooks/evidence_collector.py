@@ -115,6 +115,95 @@ def group_overrides(entries: list[dict]) -> dict:
     return overrides
 
 
+def cross_session_analysis(entries: list[dict], session_threshold: int = 3) -> dict:
+    """Analyze rule triggers across sessions for situational awareness.
+
+    Identifies "hot rules" — rules triggered in multiple sessions,
+    which may indicate systemic issues or coordinated activity.
+
+    Returns {rule_name: {sessions, total_events, actions, first_seen, last_seen,
+                         scf_domain, scf_risk_level, is_hot}}.
+    """
+    rules: dict = {}
+    for entry in entries:
+        rule = entry.get("rule_name", "")
+        if not rule:
+            continue
+        if rule not in rules:
+            rules[rule] = {
+                "sessions": set(),
+                "total_events": 0,
+                "actions": defaultdict(int),
+                "first_seen": entry.get("timestamp", ""),
+                "last_seen": entry.get("timestamp", ""),
+                "scf_domain": entry.get("scf_domain", ""),
+                "scf_risk_level": entry.get("scf_risk_level", ""),
+            }
+        r = rules[rule]
+        r["total_events"] += 1
+        r["sessions"].add(entry.get("session_id", ""))
+        r["actions"][entry.get("action", "unknown")] += 1
+        ts = entry.get("timestamp", "")
+        if ts:
+            if not r["first_seen"] or ts < r["first_seen"]:
+                r["first_seen"] = ts
+            if ts > r["last_seen"]:
+                r["last_seen"] = ts
+
+    # Mark hot rules
+    for rule, r in rules.items():
+        r["is_hot"] = len(r["sessions"]) >= session_threshold
+
+    return rules
+
+
+def format_cross_session_text(analysis: dict) -> str:
+    """Format cross-session analysis as text."""
+    lines = []
+    hot = {k: v for k, v in analysis.items() if v["is_hot"]}
+    cold = {k: v for k, v in analysis.items() if not v["is_hot"]}
+
+    lines.append("")
+    lines.append("  Cross-Session Situational Awareness")
+    lines.append("  " + "-" * 68)
+
+    if hot:
+        lines.append(f"\n  HOT RULES ({len(hot)} rules triggered across multiple sessions):")
+        lines.append(f"  {'Rule':<40} {'Sessions':>8} {'Events':>8} {'Risk':<10}")
+        lines.append("  " + "-" * 68)
+        for rule in sorted(hot, key=lambda r: -len(hot[r]["sessions"])):
+            r = hot[rule]
+            lines.append(
+                f"  {rule:<40} {len(r['sessions']):>8} {r['total_events']:>8} "
+                f"{r['scf_risk_level']:<10}"
+            )
+            lines.append(f"    Period: {r['first_seen']} → {r['last_seen']}")
+            actions = ", ".join(f"{a}={c}" for a, c in sorted(r["actions"].items()))
+            lines.append(f"    Actions: {actions}")
+    else:
+        lines.append("\n  No hot rules detected (no rule triggered across 3+ sessions).")
+
+    lines.append(f"\n  Total rules tracked: {len(analysis)} ({len(hot)} hot, {len(cold)} normal)")
+    return "\n".join(lines)
+
+
+def format_cross_session_json(analysis: dict) -> dict:
+    """Format cross-session analysis as JSON-serializable dict."""
+    return {
+        rule: {
+            "sessions": len(r["sessions"]),
+            "total_events": r["total_events"],
+            "actions": dict(r["actions"]),
+            "scf_domain": r["scf_domain"],
+            "scf_risk_level": r["scf_risk_level"],
+            "is_hot": r["is_hot"],
+            "first_seen": r["first_seen"],
+            "last_seen": r["last_seen"],
+        }
+        for rule, r in sorted(analysis.items(), key=lambda x: -len(x[1]["sessions"]))
+    }
+
+
 def format_text(
     controls: dict,
     entries: list[dict],
@@ -308,6 +397,14 @@ def main():
         "--overrides", action="store_true",
         help="Include override activity report",
     )
+    parser.add_argument(
+        "--cross-session", action="store_true",
+        help="Include cross-session situational awareness analysis",
+    )
+    parser.add_argument(
+        "--session-threshold", type=int, default=3,
+        help="Sessions threshold for hot rule detection (default: 3)",
+    )
     args = parser.parse_args()
 
     hooks_dir = os.path.dirname(os.path.abspath(__file__))
@@ -323,15 +420,25 @@ def main():
 
     controls = group_by_scf_control(entries)
     overrides = group_overrides(entries) if args.overrides else None
+    xsession = cross_session_analysis(entries, args.session_threshold) if getattr(args, "cross_session", False) else None
 
     if args.format == "json":
-        print(format_json(controls, entries, overrides, domain_filter=args.domain))
+        base = format_json(controls, entries, overrides, domain_filter=args.domain)
+        if xsession:
+            report = json.loads(base)
+            report["cross_session"] = format_cross_session_json(xsession)
+            print(json.dumps(report, indent=2))
+        else:
+            print(base)
     else:
-        print(format_text(
+        output = format_text(
             controls, entries, overrides,
             controls_only=args.controls_only,
             domain_filter=args.domain,
-        ))
+        )
+        if xsession:
+            output += format_cross_session_text(xsession)
+        print(output)
 
 
 if __name__ == "__main__":

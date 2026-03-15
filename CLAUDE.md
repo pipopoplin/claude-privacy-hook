@@ -62,6 +62,14 @@ python3 .claude/hooks/evidence_collector.py --format json       # JSON output
 python3 .claude/hooks/evidence_collector.py --domain IAC        # Filter by SCF domain
 python3 .claude/hooks/evidence_collector.py --since 2026-03-01  # Since date
 python3 .claude/hooks/evidence_collector.py --overrides         # Include override activity
+python3 .claude/hooks/evidence_collector.py --cross-session     # Cross-session hot rule analysis
+
+# --- Breach notification ---
+python3 .claude/hooks/breach_report.py                          # Breach candidates (text)
+python3 .claude/hooks/breach_report.py --format markdown        # Markdown report
+python3 .claude/hooks/breach_report.py --format json            # JSON report
+python3 .claude/hooks/breach_report.py --threshold 5            # Custom threshold
+python3 .claude/hooks/breach_report.py --session SESSION_ID     # Specific session
 
 # --- Direct hook testing ---
 echo '{"tool_name":"Bash","tool_input":{"command":"curl https://example.com"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules.json

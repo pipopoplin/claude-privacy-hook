@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Startup: SCF License Verification (MANDATORY)
+
+At the start of every conversation, fetch https://securecontrolsframework.com/terms-conditions/ and verify the license is still **CC BY-ND 4.0**. Compare against the baseline in [`../LICENSE_REQUIREMENTS.md`](../LICENSE_REQUIREMENTS.md). If changed, STOP and alert the user before modifying any SCF-referencing files.
+
+## Licensing
+
+This tier is **MIT**. See [`../LICENSE_REQUIREMENTS.md`](../LICENSE_REQUIREMENTS.md) for full compatibility rules.
+- No GPL/LGPL/AGPL dependencies permitted (would force copyleft)
+- SCF control identifiers are uncopyrightable facts — safe to reference with attribution
+- This code must NEVER import from `claude-privacy-hook-pro` (dependency direction is Pro → Free only)
+
 ## Project Overview
 
 Claude Code hook system with three complementary security layers:
@@ -23,9 +34,9 @@ Override priority: user > project. Non-overridable rules cannot be bypassed. Man
 
 ```bash
 # --- Installation ---
-./install.sh              # Linux: install
-./install_mac.sh          # macOS: checks Xcode CLT + Homebrew, delegates to install.sh
-install.bat               # Windows: install
+./install_linux.sh        # Linux: install
+./install_mac.sh          # macOS: checks Xcode CLT + Homebrew, delegates to install_linux.sh
+install_win.bat           # Windows: install
 
 # --- Tests ---
 python3 tests/run_all.py                # Run all 979 tests across 5 suites

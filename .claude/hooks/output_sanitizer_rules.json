@@ -99,7 +99,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "confidential"
     },
     {
       "name": "redact_ssn",
@@ -127,7 +128,8 @@
           "GDPR Art.9"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "redact_credit_cards",
@@ -163,7 +165,8 @@
           "PCI-DSS Req.3"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "redact_email_addresses",
@@ -187,7 +190,8 @@
           "GDPR Art.4"
         ],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "confidential"
     },
     {
       "name": "redact_private_keys",
@@ -215,7 +219,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "redact_database_connection_strings",
@@ -259,7 +264,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "redact_internal_ip_addresses",
@@ -303,7 +309,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "internal"
     }
   ]
 }

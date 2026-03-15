@@ -93,7 +93,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     }
   ]
 }

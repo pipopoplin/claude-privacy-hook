@@ -2,6 +2,10 @@
 
 Writes JSONL entries to audit.log when commands are blocked or flagged.
 Stores command hashes (not full commands) plus redacted previews.
+
+Rotation policy (configurable via env vars):
+    HOOK_AUDIT_LOG_MAX_BYTES   — rotate when file exceeds this size (default 10 MB)
+    HOOK_AUDIT_LOG_BACKUP_COUNT — number of rotated files to keep (default 5)
 """
 
 import hashlib
@@ -9,6 +13,56 @@ import json
 import os
 import re
 import time
+
+# Rotation defaults
+_DEFAULT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+_DEFAULT_BACKUP_COUNT = 5
+
+
+def _maybe_rotate(log_path: str) -> None:
+    """Rotate the audit log if it exceeds the configured size limit.
+
+    Shifts audit.log → audit.log.1 → audit.log.2 → ... and deletes
+    the oldest file beyond the backup count.
+    """
+    try:
+        max_bytes = int(os.environ.get("HOOK_AUDIT_LOG_MAX_BYTES", _DEFAULT_MAX_BYTES))
+        backup_count = int(os.environ.get("HOOK_AUDIT_LOG_BACKUP_COUNT", _DEFAULT_BACKUP_COUNT))
+    except (ValueError, TypeError):
+        max_bytes = _DEFAULT_MAX_BYTES
+        backup_count = _DEFAULT_BACKUP_COUNT
+
+    if max_bytes <= 0 or backup_count <= 0:
+        return  # Rotation disabled
+
+    try:
+        if os.path.getsize(log_path) < max_bytes:
+            return
+    except OSError:
+        return  # File doesn't exist or can't stat
+
+    # Shift existing backups: .5 → delete, .4 → .5, .3 → .4, ...
+    for i in range(backup_count, 0, -1):
+        src = f"{log_path}.{i}" if i > 1 else log_path
+        dst = f"{log_path}.{i}"
+        if i == backup_count:
+            # Delete the oldest backup
+            try:
+                os.remove(f"{log_path}.{i}")
+            except OSError:
+                pass
+        if i > 1:
+            src = f"{log_path}.{i - 1}"
+            try:
+                os.rename(src, dst)
+            except OSError:
+                pass
+        else:
+            # Rotate current log to .1
+            try:
+                os.rename(log_path, f"{log_path}.1")
+            except OSError:
+                pass
 
 
 def _redact_preview(command: str, matched: list[str], max_length: int = 100) -> str:
@@ -84,6 +138,7 @@ def log_event(
             entry["scf_risk_level"] = scf["risk_level"]
 
     try:
+        _maybe_rotate(log_path)
         with open(log_path, "a") as f:
             f.write(json.dumps(entry) + "\n")
     except OSError:

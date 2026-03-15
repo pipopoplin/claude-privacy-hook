@@ -113,7 +113,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "confidential"
     },
     {
       "name": "block_private_keys_in_content",
@@ -139,7 +140,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_hardcoded_passwords_in_content",
@@ -173,7 +175,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_database_connection_strings_in_content",
@@ -219,7 +222,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_ssn_in_content",
@@ -253,7 +257,8 @@
           "GDPR Art.9"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_credit_cards_in_content",
@@ -299,7 +304,8 @@
           "PCI-DSS Req.3"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_internal_ips_in_content",
@@ -333,7 +339,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_api_keys_in_edit",
@@ -403,7 +410,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "confidential"
     }
   ]
 }

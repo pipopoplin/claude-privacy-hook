@@ -144,7 +144,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "confidential"
     },
     {
       "name": "block_passport_licence",
@@ -185,7 +186,8 @@
           "GDPR Art.9"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "confidential"
     },
     {
       "name": "block_base64_payloads",
@@ -232,7 +234,8 @@
         ],
         "regulations": [],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_prompt_injection",
@@ -305,7 +308,8 @@
           "OWASP LLM01"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_shell_obfuscation",
@@ -376,7 +380,8 @@
         ],
         "regulations": [],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_path_traversal",
@@ -429,7 +434,8 @@
           "OWASP A05"
         ],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_dns_exfiltration",
@@ -472,7 +478,8 @@
         ],
         "regulations": [],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_pipe_chain_exfiltration",
@@ -531,7 +538,8 @@
         ],
         "regulations": [],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_ssn_national_id",
@@ -584,7 +592,8 @@
           "GDPR Art.9"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_credit_card_numbers",
@@ -641,7 +650,8 @@
           "PCI-DSS Req.3"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_employee_hr_ids",
@@ -686,7 +696,8 @@
           "GDPR Art.88"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "confidential"
     },
     {
       "name": "block_iban_bank_accounts",
@@ -736,7 +747,8 @@
           "GDPR Art.4"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_sensitive_file_access",
@@ -809,7 +821,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_database_connection_strings",
@@ -862,7 +875,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "restricted"
     },
     {
       "name": "block_internal_network_addresses",
@@ -927,7 +941,8 @@
           "GDPR Art.32"
         ],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "internal"
     },
     {
       "name": "block_customer_contract_ids",
@@ -988,7 +1003,8 @@
           "GDPR Art.4"
         ],
         "risk_level": "high"
-      }
+      },
+      "data_classification": "confidential"
     },
     {
       "name": "allow_trusted_endpoints",
@@ -1017,7 +1033,8 @@
         ],
         "regulations": [],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "public"
     },
     {
       "name": "block_untrusted_network",
@@ -1072,7 +1089,8 @@
         ],
         "regulations": [],
         "risk_level": "critical"
-      }
+      },
+      "data_classification": "internal"
     }
   ]
 }

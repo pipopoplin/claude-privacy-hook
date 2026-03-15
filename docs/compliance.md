@@ -52,12 +52,12 @@ PII detection accuracy is validated through a structured quality program:
 
 | Quality measure | Method | Coverage |
 |---|---|---|
-| **True positive rate** | 979 data-driven test cases verify known PII patterns are detected | All 34 rules |
-| **False positive rate** | Test cases include non-PII inputs that must NOT trigger (safe commands, trusted endpoints) | 518 regex + 179 sanitizer cases |
+| **True positive rate** | 1,390 data-driven test cases verify known PII patterns are detected | All 34 rules |
+| **False positive rate** | Test cases include non-PII inputs that must NOT trigger (safe commands, trusted endpoints) | 518 regex + 186 sanitizer cases |
 | **Pattern coverage** | 180+ regex patterns across 18 Bash rules, 8 Write rules, 1 Read rule, 7 output rules | All 10 PD categories |
 | **Confidence scoring** | Pro NLP plugins return 0.0–1.0 confidence per detection; configurable `min_confidence` threshold (default 0.7) | 7 NLP plugins |
 | **Performance quality** | Benchmark suite validates <1ms in-process latency SLAs | All hooks |
-| **Regression testing** | All tests run on every code change; `run_all.py` executes all 5 suites | 979 cases, 0 failures |
+| **Regression testing** | All tests run on every code change; `run_all.py` executes all 9 suites | 1,390 cases, 0 failures |
 
 Quality metrics are available via `evidence_collector_pro.py --nlp-only` (NLP confidence distribution, entity type accuracy, plugin breakdown).
 
@@ -141,7 +141,7 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 | 44 | Two-layer override system | override_resolver.py | ⚖️ | CHG | CHG-02 | Intersects With | 6 | Change control — user vs project override governance | f |
 | 45 | Override expiry dates | override_resolver.py | ⚖️ | CFG | CFG-02 | Intersects With | 6 | Configuration enforcement — time-limited exceptions | f |
 | 46 | Override validation CLI | override_cli.py | ⚖️ | CFG | CFG-04 | Intersects With | 7 | Configuration verification — validates override integrity | f |
-| 47 | Data-driven test suite (979 cases) | tests/ | 🔐🛡️ | TDA | TDA-10 | Intersects With | 7 | Security testing — validates all filter behaviors | f |
+| 47 | Data-driven test suite (1,390 cases) | tests/ | 🔐🛡️ | TDA | TDA-10 | Intersects With | 7 | Security testing — validates all filter behaviors | f |
 | 48 | Benchmark suite | benchmarks/ | 🔐 | SEA | SEA-03 | Intersects With | 5 | Performance engineering — ensures filters meet latency SLAs | f |
 | 49 | Graceful degradation (Pro → Free) | install_pro.sh | 🔐🛡️ | BCD | BCD-04 | Intersects With | 6 | Contingency operations — falls back to free tier if Pro unavailable | |
 | 50 | Deny/ask/allow access model | regex_filter.py | 🔐 | IAC | IAC-20 | Intersects With | 7 | Access enforcement — graduated control for AI agent actions | f |
@@ -150,7 +150,7 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 | 53 | Defense-in-depth pipeline | settings.json | 🔐 | SEA | SEA-01 | Subset Of | 8 | Secure architecture — 3-layer hook pipeline design | f |
 | 54 | License token machine binding | token.py (Pro) | 🔐 | IAC | IAC-15 | Intersects With | 5 | Device identification — binds license to hardware | |
 | 55 | Cross-module integrity hashing | S2 (Pro) | 🔐 | SEA | SEA-15 | Intersects With | 7 | Tamper detection — verifies module integrity at runtime | |
-| 111 | Software assurance program | integrity/, generate_sbom.py, tests/ | 🔐 | SAI | SAI-03 | Intersects With | 6 | Software assurance — integrity validation, SBOM generation, 979-case test suite. Future: compiled binary distribution strengthens to Subset Of | |
+| 111 | Software assurance program | integrity/, generate_sbom.py, tests/ | 🔐 | SAI | SAI-03 | Intersects With | 6 | Software assurance — integrity validation, SBOM generation, 1,390-case test suite. Future: compiled binary distribution strengthens to Subset Of | |
 
 ## EU AI Act Controls — AAT Domain (12 controls)
 
@@ -165,7 +165,7 @@ Mappings to the SCF Artificial Intelligence & Autonomous Technology (AAT) domain
 | 60 | Rate limiter anomaly detection | rate_limiter.py | 🔐 | AAT | AAT-16 | Intersects With | 7 | Art.9 | AI production monitoring — detects anomalous violation patterns | f |
 | 61 | Prompt injection detection | filter_rules.json | 🔐 | AAT | AAT-17 | Intersects With | 8 | Art.5 | AI harm prevention — blocks jailbreak/injection attacks | f |
 | 62 | Defense-in-depth pipeline | settings.json | 🔐 | AAT | AAT-02.3 | Intersects With | 7 | Art.9 | Adequate AI protections — 3-layer security pipeline | f |
-| 63 | 979-case test suite | tests/ | 🔐🛡️ | AAT | AAT-10.5 | Intersects With | 7 | Art.9 | AI TEVV security assessment — comprehensive control testing | f |
+| 63 | 1,390-case test suite | tests/ | 🔐🛡️ | AAT | AAT-10.5 | Intersects With | 7 | Art.9 | AI TEVV security assessment — comprehensive control testing | f |
 | 64 | Graceful degradation Pro→Free | llm_client.py | 🔐 | AAT | AAT-15.2 | Intersects With | 6 | Art.7 | AI deactivation — safe degradation when Pro unavailable | |
 | 65 | Incident reporting via audit log | audit_logger.py | ⚖️ | AAT | AAT-16.9 | Intersects With | 6 | Art.73 | AI serious incident reporting — structured incident data | f |
 | 66 | Filter rules as AI risk controls | filter_rules*.json | ⚖️ | AAT | AAT-09 | Intersects With | 6 | Art.9 | AI risk profiling — declarative JSON configs define AI risk boundaries | f |
@@ -198,7 +198,7 @@ Additional mappings to ISO 42001:2023 (AI Management Systems), verified against 
 | 79 | AI post-deployment monitoring | rate_limiter.py, audit_logger.py | 🔐 | AAT | AAT-10.13 | Intersects With | 6 | §A.9.4 | Post-deployment monitoring — rate limiter and audit log track AI behavior in production | f |
 | 80 | Change management for AI controls | override_cli.py | ⚖️ | CHG | CHG-01 | Subset Of | 8 | §6.3 | Change management program — override CLI provides structured change process | f |
 | 81 | Data quality for AI input | hook_utils.py, regex_filter.py | 🔐 | DCH | DCH-22 | Intersects With | 6 | §A.7 | Data quality — input normalization and validation ensures quality for AI processing | f |
-| 82 | Information assurance operations | tests/, benchmarks/ | 🔐 | IAO | IAO-01 | Subset Of | 9 | §A.6.2.5 | Information assurance — 979 tests + benchmarks verify AI control effectiveness | f |
+| 82 | Information assurance operations | tests/, benchmarks/ | 🔐 | IAO | IAO-01 | Subset Of | 9 | §A.6.2.5 | Information assurance — 1,390 tests + benchmarks verify AI control effectiveness | f |
 
 ## DORA & NIS2 Controls — EU Resilience (6 controls)
 
@@ -299,7 +299,7 @@ Additional controls identified through line-by-line review of all filter capabil
 | **§7 — Data management** | DCH-22, AAT-12.2: Input normalization ensures data quality and integrity |
 | **§8.1 — Operational planning** | AAT-02.3: Defense-in-depth pipeline implements operational AI controls |
 | **§9.1/9.2 — Monitoring & audit** | AAT-10, AAT-10.13, IAO-01: Tests, benchmarks, and production monitoring verify controls |
-| **§A.6.2.5 — Verification** | IAO-01: 979-case test suite + benchmarks provide information assurance |
+| **§A.6.2.5 — Verification** | IAO-01: 1,390-case test suite + benchmarks provide information assurance |
 | **§A.8.3 — Incident reporting** | AAT-11.4, AAT-16.8, AAT-16.9: Audit log captures AI incidents and errors |
 | **§A.9.4 — Post-deployment** | AAT-10.13, AAT-16: Rate limiter and audit log monitor AI behavior in production |
 
@@ -384,7 +384,7 @@ The following DPMP sub-principles are outside the scope of this tool. They requi
 | **CC1 — Control Environment** | GOV-01, GOV-02, GOV-04, HRS-01, PRI-01, AAT-01 | Governance documentation, assigned responsibilities, privacy program, AI governance |
 | **CC2 — Communication & Information** | GOV-02, IRO-01, IRO-02, DCH-02, DCH-22, CHG-01/02, PRI-01/02/14 | Published policies, incident response, data classification, change control, privacy notices |
 | **CC3 — Risk Assessment** | CHG-01/02, HRS-01, SEA-01, THR-10, TPM-03, VPM-01 | Change management, threat analysis, supply chain risk, vulnerability detection |
-| **CC4 — Monitoring Activities** | IAO-01, CPL-02, GOV-05 | 979-case test suite, controls oversight, performance metrics via benchmarks |
+| **CC4 — Monitoring Activities** | IAO-01, CPL-02, GOV-05 | 1,390-case test suite, controls oversight, performance metrics via benchmarks |
 | **CC5 — Control Activities** | GOV-02, GOV-04, IAC-21, SEA-01 | Published policies, assigned roles, least privilege, secure engineering |
 | **CC6 — Logical & Physical Access** | IAC-01, IAC-15, IAC-20, IAC-21, CRY-01/03, NET-01, DCH-02, CFG-02, PRI-01.6 | Identity management, access enforcement, crypto, network controls, data classification |
 | **CC7 — System Operations** | IRO-01, IRO-02, IRO-04.1, IRO-13, MON-01, MON-16, BCD-04, CFG-02 | Incident response, breach detection, root cause analysis, continuous monitoring, anomaly detection |
@@ -410,7 +410,7 @@ The following DPMP sub-principles are outside the scope of this tool. They requi
 | **A.8.11 — Data Masking** | Output sanitizer redacts PII and credentials from command output |
 | **A.8.12 — Data Leakage Prevention** | All credential, PII, and exfiltration filters form a DLP layer |
 | **A.8.16 — Monitoring Activities** | Audit logger + rate limiter provide continuous monitoring |
-| **A.8.25 — Secure Development Lifecycle** | 979-case test suite, benchmarks, data-driven security testing |
+| **A.8.25 — Secure Development Lifecycle** | 1,390-case test suite, benchmarks, data-driven security testing |
 
 ### OWASP ASVS 4.0 (Application Security Verification Standard)
 

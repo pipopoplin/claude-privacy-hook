@@ -103,7 +103,15 @@ Blocks access to sensitive file paths: `/etc/passwd`, `.ssh`, `.env`, `.aws`, `.
 
 ## Output Sanitizer (PostToolUse)
 
-Runs after command execution and redacts sensitive data from stdout/stderr using 7 pattern rules: API keys, SSNs, credit cards, emails, private keys, DB connection strings, internal IPs.
+Runs after command execution and sanitizes sensitive data from stdout/stderr using 7 pattern rules: API keys, SSNs, credit cards, emails, private keys, DB connection strings, internal IPs.
+
+Three anonymization modes are available per rule via the `anonymization_mode` field:
+
+| Mode | Output | Use case |
+|------|--------|----------|
+| `redact` (default) | `[REDACTED]` | Maximum privacy — no trace of original value |
+| `pseudonymize` | `[PII-{8-char-hash}]` | Same input = same token, enables correlation without exposing PII |
+| `hash` | `sha256:{full-64-char-hash}` | Irreversible, full hash for forensic integrity verification |
 
 **File:** `.claude/hooks/output_sanitizer.py`
 
@@ -115,9 +123,35 @@ Counts deny/ask violations in a rolling 5-minute window per session. Escalates: 
 
 ## Audit Logger (Evidence of Control Effectiveness)
 
-JSONL audit log writer providing evidence of control effectiveness. All hooks call `audit_logger.log_event()` on block/redact. Logs: timestamp, filter name, rule, action, matched patterns, command hash (SHA256), redacted command preview, session ID, SCF control metadata.
+JSONL audit log writer providing evidence of control effectiveness. All hooks call `audit_logger.log_event()` on block/redact. Logs: timestamp, filter name, rule, action, matched patterns, command hash (SHA256), redacted command preview, session ID, SCF control metadata (domain, controls, regulations, risk_level).
 
-Override log path via `HOOK_AUDIT_LOG` env var. Use `evidence_collector.py` to generate compliance reports grouped by SCF control.
+### Log Rotation
+
+Automatic size-based rotation prevents unbounded disk growth:
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `HOOK_AUDIT_LOG_MAX_BYTES` | 10 MB | Rotate when file exceeds this size |
+| `HOOK_AUDIT_LOG_BACKUP_COUNT` | 5 | Number of rotated backups to keep |
+
+Rotation shifts `audit.log` → `audit.log.1` → `audit.log.2` → ... and deletes the oldest beyond the backup count. Set either to `0` to disable rotation.
+
+### Data Minimization
+
+Set `HOOK_AUDIT_LOG_MINIMIZE=1` to enable DPMP P3.2 / DCH-18.2 compliant minimization:
+- Omits `command_preview` field entirely (no command text in log)
+- Strips matched text from labels — `"API key: sk-ant-abc..."` becomes `"API key"`
+- Retains `command_hash` for correlation without storing any PII
+
+### Evidence Collector
+
+Use `evidence_collector.py` to generate compliance reports grouped by SCF control. Supports `--cross-session` for situational awareness (detects "hot rules" triggered across 3+ sessions), `--overrides` for override activity, `--domain` and `--since` filters.
+
+### Breach Report
+
+`breach_report.py` identifies sessions exceeding a deny threshold (default 10) as breach candidates and generates GDPR Art.33-compliant reports with 7 required sections: nature, data categories, scale, consequences, measures taken, regulatory context, and contact information. Outputs text, JSON, or markdown.
+
+Override log path via `HOOK_AUDIT_LOG` env var.
 
 **File:** `.claude/hooks/audit_logger.py`
 
@@ -155,9 +189,10 @@ claude-privacy-hook/
 │       ├── filter_rules_read.json   # Living control set: Read
 │       ├── output_sanitizer_rules.json # Living control set: output redaction
 │       ├── rate_limiter_config.json # Rate limiter config
-│       ├── evidence_collector.py    # SCF compliance evidence reporting
+│       ├── evidence_collector.py    # SCF compliance evidence reporting + cross-session analysis
+│       ├── breach_report.py        # GDPR Art.33 breach notification generator
 │       └── config_overrides.json    # Change management: project-level overrides
-├── tests/                      # 5 test suites, 979 cases
+├── tests/                      # 9 test suites, 1,390 cases
 ├── benchmarks/                 # Benchmark suites
 └── docs/                       # Documentation
 ```

@@ -50,10 +50,32 @@ Each rule in the JSON config files follows this structure:
 | `action` | `allow`, `deny`, or `ask` |
 | `overridable` | `true` or `false` — whether overrides can bypass this rule |
 | `match` | `any` (one pattern suffices) or `all` (all must match) |
-| `patterns` | Array of regex patterns |
+| `patterns` | Array of regex patterns with `pattern` and `label` |
+| `data_classification` | Data sensitivity: `restricted`, `confidential`, `internal`, or `public` |
+| `scf` | SCF metadata object (see below) |
 | `tool_name` | Optional — restrict rule to a specific tool |
 | `enabled` | Optional — set `false` to disable a rule |
 | `description` | Human-readable rule description |
+
+### SCF Metadata (`scf` object)
+
+Every rule includes SCF compliance metadata used by the audit logger, evidence collector, and risk scoring:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `domain` | SCF domain code | `"IAC"`, `"PRI"`, `"NET"` |
+| `controls` | List of SCF control IDs | `["IAC-01", "IAC-06"]` |
+| `regulations` | Applicable regulations | `["GDPR Art.32", "PCI-DSS Req.3"]` |
+| `risk_level` | Risk criticality | `"critical"`, `"high"`, `"medium"`, `"low"` |
+
+### Data Classification Levels
+
+| Level | Description | Examples |
+|-------|-------------|---------|
+| `restricted` | Highest sensitivity — legally regulated | SSNs, credit cards, private keys, passwords |
+| `confidential` | Business-sensitive | API keys, employee IDs, customer IDs |
+| `internal` | Infrastructure details | Internal IPs, base64 payloads, shell obfuscation |
+| `public` | Non-sensitive | Trusted endpoint allowlist |
 
 Rules are evaluated top-to-bottom. `deny` rules are ordered before `ask` rules. First match wins.
 
@@ -139,7 +161,60 @@ Managed deployment (IT-enforced non-overridable rules) is available in [claude-p
 
 ## Output Sanitizer Rules
 
-Edit `.claude/hooks/output_sanitizer_rules.json` to customize what gets redacted from command output. Uses the same rule format as the regex filter.
+Edit `.claude/hooks/output_sanitizer_rules.json` to customize what gets redacted from command output. Uses the same rule format as the regex filter, plus an optional `anonymization_mode` field:
+
+| Mode | Output Format | Use Case |
+|------|---------------|----------|
+| `redact` (default) | `[REDACTED]` | Maximum privacy — no trace of original |
+| `pseudonymize` | `[PII-{8-char-hash}]` | Enables correlation without exposing PII |
+| `hash` | `sha256:{64-char-hash}` | Forensic integrity — irreversible full hash |
+
+Example rule with pseudonymization:
+
+```json
+{
+  "name": "redact_ssn",
+  "action": "redact",
+  "match": "any",
+  "anonymization_mode": "pseudonymize",
+  "data_classification": "restricted",
+  "scf": {"domain": "PRI", "controls": ["PRI-01"], "regulations": ["GDPR Art.9"], "risk_level": "critical"},
+  "patterns": [{"pattern": "\\d{3}-\\d{2}-\\d{4}", "label": "SSN"}]
+}
+```
+
+## Audit Logger Settings
+
+### Environment Variables
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `HOOK_AUDIT_LOG` | `audit.log` in hooks dir | Override audit log file path |
+| `HOOK_AUDIT_LOG_MAX_BYTES` | `10485760` (10 MB) | Rotate when file exceeds this size. Set to `0` to disable. |
+| `HOOK_AUDIT_LOG_BACKUP_COUNT` | `5` | Number of rotated backups. Set to `0` to disable. |
+| `HOOK_AUDIT_LOG_MINIMIZE` | (unset) | Set to `1` to enable data minimization mode |
+
+### Data Minimization Mode
+
+When `HOOK_AUDIT_LOG_MINIMIZE=1`, the audit logger:
+- Omits the `command_preview` field entirely — no command text in the log
+- Strips matched text from labels — `"API key: sk-ant-abc..."` becomes `"API key"`
+- Retains `command_hash` for event correlation without storing PII
+
+This implements DPMP P3.2 (Data Minimization) and SCF DCH-18.2.
+
+## Risk Scoring
+
+The override CLI calculates a risk score (1-10) when adding overrides, based on four factors:
+
+| Factor | Values |
+|--------|--------|
+| `data_classification` | restricted=4, confidential=3, internal=2, public=1 |
+| `scf.risk_level` | critical=4, high=3, medium=2, low=1 |
+| Scope | project=+1 (team-wide), user=+0 |
+| Expiry | no expiry=+1, >90 days=+1, ≤90 days=+0 |
+
+Score ≥ 8 triggers a warning. All override add/remove actions are logged to the audit trail.
 
 ## Rate Limiter Settings
 

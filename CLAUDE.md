@@ -40,12 +40,16 @@ Override priority: user > project. Non-overridable rules cannot be bypassed. Man
 install_win.bat           # Windows: install
 
 # --- Tests ---
-python3 tests/run_all.py                # Run all 979 tests across 5 suites
+python3 tests/run_all.py                # Run all 1,390 tests across 9 suites
 python3 tests/test_regex_filter.py      # Regex filter: Bash + Write + Read rules (518 cases)
-python3 tests/test_output_sanitizer.py  # Output sanitizer: redaction rules (179 cases)
+python3 tests/test_output_sanitizer.py  # Output sanitizer: redaction + anonymization (186 cases)
 python3 tests/test_rate_limiter.py      # Rate limiter: threshold escalation (60 cases)
-python3 tests/test_overrides.py         # Override system (74 cases)
+python3 tests/test_overrides.py         # Override system + risk scoring (94 cases)
 python3 tests/test_conftest.py          # Test infrastructure (148 cases)
+python3 tests/test_audit_logger.py      # Audit logger: rotation, minimize, SCF metadata (55 cases)
+python3 tests/test_evidence_collector.py # Evidence collector: cross-session, grouping (47 cases)
+python3 tests/test_breach_report.py     # Breach report: detection, severity, formats (55 cases)
+python3 tests/test_config_validation.py # Config validation: SCF tags, classification (109 cases)
 
 # --- Benchmarks ---
 python3 benchmarks/run_all.py                  # All benchmarks
@@ -111,18 +115,18 @@ Read         → regex_filter.py (filter_rules_read.json)   → execute or block
 - `.claude/hooks/filter_rules_write.json` — Write/Edit rules: all `deny`, non-overridable.
 - `.claude/hooks/filter_rules_read.json` — Read rules: `deny`, overridable.
 
-Rule format: `field` (dot-path into hook JSON), `action` (allow/deny/ask), `overridable` (bool), `match` (any/all), `patterns` (regex list), optional `tool_name` filter and `enabled` toggle.
+Rule format: `field` (dot-path into hook JSON), `action` (allow/deny/ask), `overridable` (bool), `match` (any/all), `patterns` (regex list), `data_classification` (restricted/confidential/internal/public), `scf` (domain, controls, regulations, risk_level), optional `tool_name` filter and `enabled` toggle.
 
 ### Override System
 
 - `.claude/hooks/override_resolver.py` — Loads and checks overrides from user (`~/.claude/hooks/config_overrides.json`) and project (`.claude/hooks/config_overrides.json`). Uses `FREE_TIER_RULES` whitelist to restrict which rules can be overridden. User overrides take priority. Pro tier extends this whitelist.
 - `.claude/hooks/config_overrides.json` — Project-level override file (empty template committed to git).
-- `.claude/hooks/override_cli.py` — CLI tool for adding, listing, removing, validating, and testing overrides.
+- `.claude/hooks/override_cli.py` — CLI tool for adding, listing, removing, validating, and testing overrides. Calculates risk scores (1-10) on add, logs all changes to audit trail.
 
 ### Output Sanitizer
 
-- `.claude/hooks/output_sanitizer.py` — PostToolUse hook that redacts sensitive data from command output.
-- `.claude/hooks/output_sanitizer_rules.json` — 7 redaction rules: API keys, SSNs, credit cards, emails, private keys, DB connection strings, internal IPs.
+- `.claude/hooks/output_sanitizer.py` — PostToolUse hook that redacts sensitive data from command output. Supports three anonymization modes per rule: `redact` (default, `[REDACTED]`), `pseudonymize` (`[PII-{hash}]`), `hash` (`sha256:{full}`).
+- `.claude/hooks/output_sanitizer_rules.json` — 7 redaction rules: API keys, SSNs, credit cards, emails, private keys, DB connection strings, internal IPs. Each rule has `data_classification` and `scf` metadata.
 
 ### Rate Limiter
 
@@ -131,7 +135,17 @@ Rule format: `field` (dot-path into hook JSON), `action` (allow/deny/ask), `over
 
 ### Audit Logger
 
-- `.claude/hooks/audit_logger.py` — JSONL audit log writer. All hooks call `audit_logger.log_event()` on block/redact/override_allow. Logs timestamp, filter name, rule, action, matched patterns, command hash (SHA256), redacted command preview, session ID. For overrides, also logs `override_name` and `override_source`. Override log path via `HOOK_AUDIT_LOG` env var.
+- `.claude/hooks/audit_logger.py` — JSONL audit log writer. All hooks call `audit_logger.log_event()` on block/redact/override_allow. Logs timestamp, filter name, rule, action, matched patterns, command hash (SHA256), redacted command preview, session ID, SCF metadata (domain, controls, regulations, risk_level). For overrides, also logs `override_name` and `override_source`. Override log path via `HOOK_AUDIT_LOG` env var.
+- **Log rotation**: `HOOK_AUDIT_LOG_MAX_BYTES` (default 10 MB), `HOOK_AUDIT_LOG_BACKUP_COUNT` (default 5). Rotates `audit.log` → `.1` → `.2` → ... and deletes oldest beyond count.
+- **Data minimization**: `HOOK_AUDIT_LOG_MINIMIZE=1` omits `command_preview` and strips matched text from labels (keeps label name only, no PII).
+
+### Evidence Collector
+
+- `.claude/hooks/evidence_collector.py` — Reads audit log, groups events by SCF control, generates compliance evidence reports (text or JSON). Supports `--cross-session` for hot rule detection across sessions, `--overrides` for override activity, `--domain` filter, `--since` date filter.
+
+### Breach Report
+
+- `.claude/hooks/breach_report.py` — Identifies sessions exceeding a deny threshold (default 10) as breach candidates. Generates GDPR Art.33-compliant reports with 7 required sections. Outputs text, JSON, or markdown. Supports `--session`, `--threshold`, `--since`, `--format`.
 
 ### Adding Trusted Endpoints
 
@@ -147,4 +161,4 @@ python3 .claude/hooks/override_cli.py add --scope project --rule block_untrusted
 
 ## Pro Tier
 
-NLP-based PII detection (Presidio, spaCy, DistilBERT), managed/IT-enforced overrides, custom NLP plugins, and enhanced audit logging are available via `claude-privacy-hook-pro` (Pro tier).
+NLP-based PII detection (Presidio, spaCy, DistilBERT), managed/IT-enforced overrides, custom NLP plugins, SIEM integration (Splunk, Datadog, Elasticsearch, CEF/LEEF syslog), compliance dashboards, and SBOM generation are available via `claude-privacy-hook-pro` (Pro tier).

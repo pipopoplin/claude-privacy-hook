@@ -2,6 +2,84 @@
 
 111 controls are mapped across the three security layers, covering 23 SCF domains.
 
+## Business Context & Privacy Objectives
+
+**What this tool does:** claude-privacy-hook is a technical control layer that intercepts every action an AI coding assistant (Claude Code) takes — commands, file reads, file writes — and blocks or redacts anything that could expose personal or sensitive data.
+
+**Why personal data is processed:** AI coding assistants operate on developer workstations where source code, configuration files, and command output routinely contain personal data (API keys, credentials, PII, financial data, employee identifiers). Without intervention, the AI agent may inadvertently transmit this data to untrusted endpoints, write it to files, or expose it in command output.
+
+**Privacy objective:** Prevent personal data from leaving the developer's machine through AI agent actions. All detection and enforcement runs locally — nothing is transmitted externally. The audit log stores only SHA-256 command hashes and pattern labels, never raw personal data.
+
+**Role:** This tool is a **technical control** (data processor safeguard), not a data controller. It does not collect, store, or transmit personal data. It detects and blocks the AI agent from doing so.
+
+**Data subjects:** Developers using Claude Code, and any individuals whose personal data appears in the developer's working environment (employees, customers, end users).
+
+## Personal Data Categories
+
+The following taxonomy maps personal data categories detected by this tool to their sensitivity level, applicable GDPR article, protecting filters, and handling action.
+
+| Category | Examples | Sensitivity | GDPR | Filters | Action |
+|----------|----------|-------------|------|---------|--------|
+| **Identity credentials** | API keys, tokens, passwords, private keys | Restricted | Art.32 | #1-6, #16, #32 | Block |
+| **Government identifiers** | SSN, passport, driver licence, national ID | Restricted | Art.9 | #11, #20 | Block |
+| **Financial data** | Credit cards, IBAN, bank accounts, routing numbers | Restricted | Art.4 / PCI-DSS | #12, #19 | Block |
+| **Contact information** | Names, emails, phone numbers, IP addresses | Confidential | Art.4 | #9, #10, #13, #14 | Block (L2) / Redact |
+| **Employment data** | Employee IDs, HR numbers, payroll references | Confidential | Art.88 | #17 | Ask |
+| **Special categories** | Medical/health, biometric, ethnic, religious, political | Confidential | Art.9 | #18, #29, #30 | Block (L2) |
+| **Business identifiers** | Customer IDs, invoices, orders, contracts, tenant IDs | Confidential | Art.4 | #28 | Ask |
+| **Infrastructure secrets** | DB connection strings, internal IPs, cloud metadata | Restricted | Art.32 | #26, #27, #38 | Block / Ask |
+| **Cryptographic material** | Private keys, PEM certificates, key files | Restricted | Art.32 | #4, #73 | Block |
+| **Organizational entities** | Company names, locations, political groups | Internal | Art.4 | #15 | Block (L2) |
+
+**Handling actions:** Block = command denied. Ask = human approval required. Redact = sensitive data replaced in output. L2 = requires Pro tier NLP detection.
+
+## Data Subject Empowerment
+
+Developers are the primary data subjects in this system — their commands contain their credentials, PII, and sensitive data. The following features give developers direct control:
+
+| Feature | Empowerment |
+|---|---|
+| **"ask" action** (7 rules) | Developer explicitly approves or denies each flagged action |
+| **Override CLI `add`** | Developer creates permanent exceptions for their workflow |
+| **Override expiry** | Time-limited consent with automatic revocation |
+| **Override CLI `list`** | Developer reviews all active exceptions (transparency) |
+| **Override CLI `remove`** | Developer revokes any exception at any time |
+| **`HOOK_AUDIT_LOG_MINIMIZE=1`** | Developer minimizes their own PD stored in audit logs |
+
+## Detection Quality Assurance
+
+PII detection accuracy is validated through a structured quality program:
+
+| Quality measure | Method | Coverage |
+|---|---|---|
+| **True positive rate** | 979 data-driven test cases verify known PII patterns are detected | All 34 rules |
+| **False positive rate** | Test cases include non-PII inputs that must NOT trigger (safe commands, trusted endpoints) | 518 regex + 179 sanitizer cases |
+| **Pattern coverage** | 180+ regex patterns across 18 Bash rules, 8 Write rules, 1 Read rule, 7 output rules | All 10 PD categories |
+| **Confidence scoring** | Pro NLP plugins return 0.0–1.0 confidence per detection; configurable `min_confidence` threshold (default 0.7) | 7 NLP plugins |
+| **Performance quality** | Benchmark suite validates <1ms in-process latency SLAs | All hooks |
+| **Regression testing** | All tests run on every code change; `run_all.py` executes all 5 suites | 979 cases, 0 failures |
+
+Quality metrics are available via `evidence_collector_pro.py --nlp-only` (NLP confidence distribution, entity type accuracy, plugin breakdown).
+
+## Review Cadence
+
+Controls, rules, and compliance documentation are reviewed on the following schedule:
+
+| Review type | Frequency | Trigger | What's reviewed | Tool |
+|---|---|---|---|---|
+| **Scheduled review** | Quarterly | Calendar | All filter rules, override activity, compliance coverage, DPMP gaps | Manual review of compliance.md + `evidence_collector.py` |
+| **Evidence review** | Monthly | `evidence_collector.py` run | SCF control coverage, event trends, domain summary, hot rules | `evidence_collector.py --cross-session` |
+| **Incident-triggered** | Ad hoc | `breach_report.py` finding or rate limiter block escalation | Affected rules, root cause, coverage gaps, remediation | `breach_report.py --format markdown` |
+| **License review** | Every session | CLAUDE.md startup check | SCF CC BY-ND 4.0 terms unchanged; MIT/BSL 1.1 compatibility | Automated (CLAUDE.md mandate) |
+| **Override review** | On expiry | Override expiry date reached | Expired overrides removed or renewed with justification and risk score | `override_cli.py validate --scope all` |
+| **Dependency review** | On release | `generate_sbom.py` run | License compatibility (no GPL), known vulnerabilities, transitive deps | `generate_sbom.py` → CycloneDX SBOM |
+
+**Out-of-cycle review triggers:** Any of the following warrant immediate review outside the scheduled cadence:
+- Breach candidate detected by `breach_report.py` (deny count exceeds threshold)
+- SCF license terms change detected at startup (CLAUDE.md mandate)
+- New regulation or framework version published (e.g., GDPR amendment, new EU AI Act guidance)
+- Override risk score >= 8 (critical) — logged with warning at creation time
+
 ## Filter Controls (40 filters)
 
 Relationship types follow NIST IR 8477 Set Theory Relationship Mapping (STRM). Strength is rated 1–10 based on how directly our implementation addresses the SCF control objective.
@@ -271,17 +349,33 @@ Additional controls identified through line-by-line review of all filter capabil
 
 | DPMP Principle | Coverage | claude-privacy-hook Mapping |
 |---|:---:|---|
-| **P1 — Data Privacy by Design** | ✓ 27% | PRI-01, DCH-02, GOV-01: Privacy program, data classification, governance |
-| **P2 — Data Subject Participation** | ✓ 38% | PRI-03: "ask" model provides choice; override system enables consent-based exceptions |
-| **P3 — Limited Collection & Use** | ✓ 25% | PRI-04: Filters restrict PII collection by AI agent to identified purposes |
-| **P4 — Transparency** | ✓ new | PRI-02.1: compliance.md documents purpose specification for each filter |
-| **P5 — Data Lifecycle Management** | ✓ new | DCH-01, DCH-23, PRI-14: Data protection, de-identification via [REDACTED], processing records |
-| **P6 — Data Subject Rights** | ○ gap | No direct tool feature (organizational responsibility, not a technical control) |
+| **P1 — Data Privacy by Design** | ✓ 36% | PRI-01, DCH-02, GOV-01, GOV-08: Privacy program, data classification, governance, PD inventory (categories table), business context |
+| **P2 — Data Subject Participation** | ✓ 50% | PRI-03: "ask" model = real-time consent; override system with expiry = managed consent; override audit trail = consent records |
+| **P3 — Limited Collection & Use** | ✓ 38% | PRI-04, DCH-18.2: Filters restrict PII collection; HOOK_AUDIT_LOG_MINIMIZE strips PD from logs |
+| **P4 — Transparency** | ✓ 33% | PRI-02.1: compliance.md documents purpose per filter; PD categories taxonomy; data flow diagram |
+| **P5 — Data Lifecycle Management** | ✓ 45% | DCH-01, DCH-23, PRI-14, DCH-09.3, DCH-18: Data protection, de-identification/pseudonymization, processing records, secure destruction (log rotation), retention policy |
+| **P6 — Data Subject Rights** | — n/a | Organizational responsibility — this tool is a technical control, not a data controller (see rationale below) |
 | **P7 — Cybersecurity by Design** | ✓ 21% | CRY-01, HRS-01, IAO-01: Crypto protection, HR data security, information assurance |
-| **P8 — Incident Response** | ✓ 67% | IRO-01, IRO-02: Incident response operations, incident handling via audit log |
-| **P9 — Risk Management** | ✓ new | RSK-04, RSK-10: Risk assessment via filter rules; DPIA via compliance.md |
-| **P10 — Third-Party Management** | ✓ 20% | TPM-03: Network filters block untrusted third-party endpoints |
-| **P11 — Business Environment** | ✓ 22% | CPL-02, GOV-02: Controls oversight, published governance documentation |
+| **P8 — Incident Response** | ✓ 80% | IRO-01, IRO-02, IRO-10: Incident response, incident handling, breach notification report (breach_report.py) |
+| **P9 — Risk Management** | ✓ 40% | RSK-04, RSK-10, RSK-06.1: Risk assessment via filter rules; DPIA via compliance.md; risk scoring model; SBOM for supply chain risk |
+| **P10 — Third-Party Management** | ✓ 33% | TPM-03, SAI-03: Network filters block untrusted endpoints; SBOM provides dependency transparency; trusted endpoint allowlist |
+| **P11 — Business Environment** | ✓ 33% | CPL-02, GOV-02, GOV-08: Controls oversight, published governance documentation, business context documented |
+
+#### DPMP Sub-Principles Not Applicable
+
+The following DPMP sub-principles are outside the scope of this tool. They require organizational processes, legal determinations, or physical infrastructure that a developer-facing technical control cannot provide. They are listed here so auditors see intentional, reasoned exclusion rather than oversight.
+
+| Category | Sub-principles | Rationale |
+|---|---|---|
+| **Database registration** | P1.3 | We do not operate or manage databases — we intercept AI agent actions |
+| **Training** | P1.6 | We are a technical control, not a training platform. The "ask" action provides real-time education but is not a substitute for formal privacy training |
+| **Privacy communications** | P1.8-1.10 | Privacy notices to data subjects are an organizational responsibility. Our compliance.md and README document our approach but do not constitute notices to end users |
+| **Legal basis** | P3.1 | Authority to collect personal data is a legal/organizational determination outside our scope |
+| **Lifecycle operations** | P5.3, P5.4, P5.6, P5.7, P5.9 | Specific lifecycle operations (archival procedures, disposal verification, cross-border transfer restrictions, data migration) require organizational processes beyond a hook pipeline |
+| **Data subject rights** | P6.* (all 7) | Access, rectification, erasure, portability, restriction, objection, and automated decision rights require a data controller relationship. This tool is a technical safeguard within a processor, not a controller |
+| **Physical/infrastructure** | P7.1, P7.3-P7.8, P7.10, P7.12 | Physical security, HR vetting, cloud infrastructure, embedded systems, and environmental controls are infrastructure-level concerns outside a CLI tool's scope |
+| **Business operations** | P11.2-P11.* | Regulatory engagement, business strategy, and market-specific privacy operations are organizational responsibilities |
+| **Multi-factor authentication** | IAC-06 | No login surface exists — hooks fire automatically via Claude Code's hook system. Pro license uses JWT with machine binding (IAC-15) but MFA requires an interactive authentication flow we do not have |
 
 ### SOC 2 Trust Service Criteria (STRM-verified)
 
@@ -317,6 +411,41 @@ Additional controls identified through line-by-line review of all filter capabil
 | **A.8.12 — Data Leakage Prevention** | All credential, PII, and exfiltration filters form a DLP layer |
 | **A.8.16 — Monitoring Activities** | Audit logger + rate limiter provide continuous monitoring |
 | **A.8.25 — Secure Development Lifecycle** | 979-case test suite, benchmarks, data-driven security testing |
+
+### OWASP ASVS 4.0 (Application Security Verification Standard)
+
+| ASVS Category | claude-privacy-hook Mapping |
+|---|---|
+| **V2 — Authentication** | IAC-01, IAC-15: Credential detection blocks leaked auth tokens; Pro license uses JWT with machine binding |
+| **V3 — Session Management** | Session-scoped rate limiting; audit log tracks session IDs for correlation |
+| **V4 — Access Control** | IAC-20, IAC-21: Deny/ask/allow model enforces least-privilege; two-layer override separation |
+| **V5 — Validation, Sanitization, Encoding** | THR-07: Unicode normalization (NFKC), homoglyph detection, zero-width stripping before all pattern matching |
+| **V7 — Error Handling & Logging** | IRO-01, MON-03: All hooks log structured JSONL entries; hooks never crash (exit 0 on error) |
+| **V8 — Data Protection** | DCH-02, DCH-05, CRY-01, PRI-01: PII/credential detection, output redaction, cryptographic material protection |
+| **V9 — Communication** | NET-01: Network allowlisting, untrusted endpoint blocking, DNS/pipe exfiltration prevention |
+| **V10 — Malicious Code** | THR-10, OPS-05: Prompt injection detection, shell obfuscation blocking, path traversal prevention |
+| **V12 — Files & Resources** | IAC-20: Sensitive file access blocking (.env, .ssh, .aws, .kube, shell history) |
+| **V13 — API & Web Service** | NET-01: HTTP library call detection (requests, fetch, axios, AI SDKs); trusted endpoint allowlisting |
+| **V14 — Configuration** | CFG-02, CFG-04: Override validation CLI; JSON rule configs as machine-readable security policies |
+
+### SCF Evidence Request List (ERL) Mapping
+
+The following table maps SCF evidence types to the specific tools and audit log fields that produce them. Use this when responding to auditor evidence requests.
+
+| Evidence type | SCF expectation | Our tool / field | How to extract |
+|---|---|---|---|
+| **Policy documentation** | Written security policies | `filter_rules*.json`, `compliance.md` | Rule configs ARE machine-readable policies |
+| **Control effectiveness** | Proof controls are working | `audit.log` → `action`, `rule_name` | `evidence_collector.py --format json` |
+| **Incident records** | Structured incident data | `audit.log` → deny/block events with SCF metadata | `breach_report.py --format json` |
+| **Change records** | Log of configuration changes | `audit.log` → `override_add`, `override_remove` events | `grep override_add audit.log` |
+| **Risk assessment** | Risk evaluation records | `audit.log` → risk score on override_add | `override_cli.py validate --scope all` |
+| **Access control records** | Who accessed what, when | `audit.log` → `session_id`, `command_hash`, `timestamp` | `evidence_collector.py --cross-session` |
+| **Monitoring evidence** | Continuous monitoring proof | `audit.log` → event timeline + rate limiter escalations | `compliance_dashboard.py --format prometheus` |
+| **Training / awareness** | Staff awareness evidence | "ask" action forces real-time review; compliance.md documents controls | Override audit trail shows developer engagement |
+| **Third-party oversight** | Supply chain controls | `sbom.cdx.json`, TPM-03 network filter events | `generate_sbom.py` + `evidence_collector.py --domain TPM` |
+| **Data classification** | Data inventory by sensitivity | `data_classification` field on all 34 rules; PD categories table | `compliance.md` §Personal Data Categories |
+| **Privacy controls** | PII protection evidence | `audit.log` → PRI domain events; NLP confidence scores | `evidence_collector_pro.py --nlp-only` |
+| **Compliance reporting** | Periodic compliance status | Domain summary, control coverage, risk distribution | `compliance_dashboard.py --format html` |
 
 ---
 
@@ -426,6 +555,7 @@ Codes follow the official [Secure Controls Framework](https://securecontrolsfram
 | **PSD2** | Payment Services Directive 2 (EU banking regulation) |
 | **OWASP LLM01** | OWASP Top 10 for LLMs — prompt injection |
 | **OWASP A05** | OWASP Top 10 — security misconfiguration (path traversal) |
+| **OWASP ASVS 4.0** | Application Security Verification Standard — 14 categories, ~280 requirements for application security |
 | **NIST CSF 2.0** | NIST Cybersecurity Framework 2.0 — Govern, Identify, Protect, Detect, Respond, Recover |
 | **SOC 2** | Service Organization Control 2 — Trust Service Criteria (CC, P, A, C) |
 | **DORA** | EU Digital Operational Resilience Act (Regulation 2022/2554) — ICT risk for financial sector |

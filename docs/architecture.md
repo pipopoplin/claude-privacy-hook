@@ -17,6 +17,53 @@ Write/Edit   → regex_filter.py (filter_rules_write.json, 8 rules) → execute 
 Read         → regex_filter.py (filter_rules_read.json, 1 rule)   → execute or block
 ```
 
+## Data Flow — Privacy Perspective
+
+Personal data can enter the hook pipeline at three points. At each point, controls detect, block, or redact before the data can leave the system boundary.
+
+```
+                          SYSTEM BOUNDARY (developer machine)
+                         ┌─────────────────────────────────────┐
+                         │                                     │
+  PD enters via          │  ┌─────────────┐                   │
+  command input  ───────►│  │ normalize   │  Unicode NFKC,    │
+  (Bash tool)            │  │ (hook_utils)│  homoglyph map,   │
+                         │  └──────┬──────┘  zero-width strip │
+                         │         ▼                           │
+                         │  ┌─────────────┐   Match? ──► DENY │  PD blocked
+                         │  │ regex_filter│          ──► ASK  │  (never leaves)
+                         │  │ (18 rules)  │                   │
+                         │  └──────┬──────┘   No match        │
+                         │         ▼                    ▼      │
+  PD enters via          │  ┌─────────────┐   ┌──────────┐   │
+  file content  ────────►│  │ write filter│   │ execute  │   │
+  (Write/Edit tool)      │  │ (8 rules)   │   │ command  │   │
+                         │  └─────────────┘   └────┬─────┘   │
+                         │                         ▼          │
+  PD enters via          │                  ┌─────────────┐   │
+  command output ◄───────│──────────────────│  output     │   │
+  (stdout/stderr)        │                  │  sanitizer  │   │
+                         │                  │  (7 rules)  │   │
+                         │                  └──────┬──────┘   │
+                         │                         ▼          │
+                         │  PD replaced with [REDACTED] or    │
+                         │  [PII-token] (pseudonymize mode)   │
+                         │                                     │
+                         │  ┌─────────────┐                   │
+                         │  │ audit_logger│  Stores ONLY:     │
+                         │  │ (JSONL)     │  - SHA-256 hash   │
+                         │  └─────────────┘  - pattern labels │
+                         │                   - SCF metadata   │
+                         │    (NO raw PD in audit log)        │
+                         └─────────────────────────────────────┘
+```
+
+**Key privacy guarantees:**
+- PD detected at input is blocked before execution — it never reaches the network or filesystem
+- PD detected in output is redacted before the developer sees it
+- The audit log stores command hashes and label names only — never raw personal data
+- With `HOOK_AUDIT_LOG_MINIMIZE=1`, even command previews are omitted
+
 ## Regex Filter (Layer 1)
 
 Fast, deterministic regex engine with Unicode normalization (NFKC), homoglyph detection (Cyrillic/Greek), and zero-width character stripping. Reads any JSON rule config, evaluates rules top-to-bottom — first match wins.

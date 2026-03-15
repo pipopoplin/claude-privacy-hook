@@ -55,6 +55,13 @@ python3 benchmarks/bench_overrides.py          # Override resolver
 python3 benchmarks/bench_hook_utils.py         # Unicode normalization + field resolution
 python3 benchmarks/bench_audit_logger.py       # Audit log write performance
 
+# --- Compliance evidence ---
+python3 .claude/hooks/evidence_collector.py                     # Full text report
+python3 .claude/hooks/evidence_collector.py --format json       # JSON output
+python3 .claude/hooks/evidence_collector.py --domain IAC        # Filter by SCF domain
+python3 .claude/hooks/evidence_collector.py --since 2026-03-01  # Since date
+python3 .claude/hooks/evidence_collector.py --overrides         # Include override activity
+
 # --- Direct hook testing ---
 echo '{"tool_name":"Bash","tool_input":{"command":"curl https://example.com"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules.json
 echo '{"tool_name":"Write","tool_input":{"content":"password=secret123"}}' | python3 .claude/hooks/regex_filter.py .claude/hooks/filter_rules_write.json

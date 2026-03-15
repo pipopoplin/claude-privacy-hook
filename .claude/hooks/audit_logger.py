@@ -35,6 +35,7 @@ def log_event(
     session_id: str = "",
     override_name: str = "",
     override_source: str = "",
+    scf: dict | None = None,
 ) -> None:
     """Append a JSONL audit entry to audit.log.
 
@@ -48,6 +49,8 @@ def log_event(
         session_id: Claude Code session ID for correlation.
         override_name: Name of the override that allowed the action.
         override_source: Source layer of the override (user, project).
+        scf: Optional SCF metadata from matched rule (domain, controls,
+            regulations, risk_level).
     """
     log_path = os.environ.get(
         "HOOK_AUDIT_LOG",
@@ -69,6 +72,16 @@ def log_event(
         entry["override_name"] = override_name
     if override_source:
         entry["override_source"] = override_source
+
+    if scf:
+        if scf.get("domain"):
+            entry["scf_domain"] = scf["domain"]
+        if scf.get("controls"):
+            entry["scf_controls"] = scf["controls"]
+        if scf.get("regulations"):
+            entry["scf_regulations"] = scf["regulations"]
+        if scf.get("risk_level"):
+            entry["scf_risk_level"] = scf["risk_level"]
 
     try:
         with open(log_path, "a") as f:

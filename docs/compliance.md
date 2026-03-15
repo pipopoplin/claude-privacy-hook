@@ -1,51 +1,53 @@
 # Compliance Coverage
 
-55 controls are mapped across the three security layers, covering 20 SCF domains.
+110 controls are mapped across the three security layers, covering 22 SCF domains.
 
 ## Filter Controls (40 filters)
 
-| # | Filter | Layer | Scope | SCF Domain | SCF Control | Regulation | Value | Free |
-|---|--------|-------|-------|------------|-------------|------------|-------|:----:|
-| 1 | Anthropic / OpenAI API keys | L1 regex | 🔐 | IAC | IAC-01 | — | 🔴 Critical |  f  |
-| 2 | AWS / GCP / Azure credentials | L1 regex | 🔐 | IAC | IAC-01 | — | 🔴 Critical |  f  |
-| 3 | GitHub / GitLab tokens | L1 regex | 🔐 | IAC | IAC-09 | — | 🔴 Critical |  f  |
-| 4 | Private keys / PEM certs | L1 regex | 🔐 | CRY | CRY-03 | — | 🔴 Critical |  f  |
-| 5 | Slack / webhook tokens | L1 regex | 🔐 | IAC | IAC-09 | — | 🔴 Critical |  f  |
-| 6 | Hardcoded passwords | L1 regex | 🔐 | IAC | IAC-01 | — | 🔴 Critical |  f  |
-| 7 | Untrusted network calls | L1 regex | 🔐 | NET | NET-13 | — | 🔴 Critical |   |
-| 8 | Trusted endpoint allowlist | L1 regex | 🔐 | NET | NET-13 | — | 🔴 Critical |   |
-| 9 | Person names (NER) | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
-| 10 | Email addresses | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
-| 11 | SSN / National ID | L1 regex | 🛡️ | PRI | PRI-03 | GDPR Art.9 | 🔴 Critical |  f  |
-| 12 | Credit card numbers | L1 regex | 🛡️ | DAT | DAT-02 | PCI-DSS Req.3 | 🔴 Critical |  f  |
-| 13 | Phone numbers | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
-| 14 | IP addresses | L2 NLP | 🛡️ | PRI | PRI-01 | GDPR Art.4 | 🔴 Critical |   |
-| 15 | ORG / GPE / NORP entities | L2 NLP | 🛡️ | PRI | PRI-02 | GDPR Art.4 | 🟠 High |   |
-| 16 | Expanded vendor credentials | L1 regex | 🔐 | IAC | IAC-01 | — | 🔴 Critical |   |
-| 17 | Employee ID / HR numbers | L1 regex | 🛡️ | HRS | HRS-01 | GDPR Art.88 | 🔴 Critical |   |
-| 18 | Medical / health data | L2 NLP | 🛡️ | PRI | PRI-03 | GDPR Art.9 / HIPAA | 🔴 Critical |   |
-| 19 | IBAN / bank account numbers | L1 regex | 🛡️ | DAT | DAT-02 | PSD2 / GDPR Art.4 | 🔴 Critical |  f  |
-| 20 | Passport / driver licence | L1 regex | 🛡️ | PRI | PRI-03 | GDPR Art.9 | 🔴 Critical |   |
-| 21 | Base64-encoded payloads | L1 regex | 🔐 | TVM | TVM-07 | — | 🔴 Critical |   |
-| 22 | Prompt injection phrases | L1/L2 | 🔐 | TVM | TVM-10 | OWASP LLM01 | 🔴 Critical |   |
-| 23 | Sensitive file access | L1 regex | 🔐🛡️ | END | END-04 | GDPR Art.32 | 🔴 Critical |   |
-| 24 | DNS exfiltration | L1 regex | 🔐 | NET | NET-14 | — | 🟠 High |   |
-| 25 | Path traversal | L1 regex | 🔐 | TVM | TVM-10 | OWASP A05 | 🟠 High |   |
-| 26 | Database connection strings | L1 regex | 🔐🛡️ | DCH | DCH-05 | GDPR Art.32 | 🔴 Critical |   |
-| 27 | Internal hostnames / IPs | L1 regex | 🛡️ | NET | NET-01 | GDPR Art.32 | 🟠 High |   |
-| 28 | Customer / contract IDs | L1 regex | 🛡️ | PRI | PRI-02 | GDPR Art.4 | 🟠 High |   |
-| 29 | Biometric data references | L2 NLP | 🛡️ | PRI | PRI-03 | GDPR Art.9 | 🟠 High |   |
-| 30 | Ethnic / religious / political | L2 NLP | 🛡️ | PRI | PRI-03 | GDPR Art.9 | 🟠 High |   |
-| 31 | Unicode / homoglyph bypass | L1 | 🔐 | TVM | TVM-07 | — | 🟠 High |   |
-| 32 | High-entropy secret detection | L2 NLP | 🔐 | IAC | IAC-01 | — | 🟠 High |   |
-| 33 | Shell obfuscation / eval | L1 regex | 🔐 | OPS | OPS-05 | — | 🟠 High |   |
-| 34 | Pipe-chain exfiltration | L1 regex | 🔐 | NET | NET-13 | — | 🟠 High |   |
-| 35 | Output sanitization | Post-hook | 🛡️ | DAT | DAT-05 | GDPR Art.32 | 🟡 Medium |   |
-| 36 | ask / human oversight | Meta | ⚖️ | GOV | GOV-04 | GDPR Art.22 | 🟡 Medium |   |
-| 37 | Audit log of blocked events | Meta | ⚖️ | IRO | IRO-01 | GDPR Art.5(2) | 🟠 High |   |
-| 38 | Rate limiting / anomaly | Meta | 🔐 | OPS | OPS-08 | — | 🟡 Medium |   |
-| 39 | Non-Bash tool coverage | Config | 🔐🛡️ | OPS | OPS-05 | GDPR Art.32 | 🟡 Medium |   |
-| 40 | Semantic intent scoring | L2 NLP | 🔐🛡️ | TVM | TVM-10 | OWASP LLM01 | 🟡 Medium |   |
+Relationship types follow NIST IR 8477 Set Theory Relationship Mapping (STRM). Strength is rated 1–10 based on how directly our implementation addresses the SCF control objective.
+
+| # | Filter | Layer | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Value | Free |
+|---|--------|-------|-------|------------|-------------|------|:---:|------------|-------|:----:|
+| 1 | Anthropic / OpenAI API keys | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
+| 2 | AWS / GCP / Azure credentials | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
+| 3 | GitHub / GitLab tokens | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
+| 4 | Private keys / PEM certs | L1 regex | 🔐 | CRY | CRY-03 | Intersects With | 7 | — | 🔴 Critical |  f  |
+| 5 | Slack / webhook tokens | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
+| 6 | Hardcoded passwords | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
+| 7 | Untrusted network calls | L1 regex | 🔐 | NET | NET-01 | Subset Of | 8 | — | 🔴 Critical |   |
+| 8 | Trusted endpoint allowlist | L1 regex | 🔐 | NET | NET-01 | Subset Of | 8 | — | 🔴 Critical |   |
+| 9 | Person names (NER) | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
+| 10 | Email addresses | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
+| 11 | SSN / National ID | L1 regex | 🛡️ | PRI | PRI-01 | Subset Of | 9 | GDPR Art.9 | 🔴 Critical |  f  |
+| 12 | Credit card numbers | L1 regex | 🛡️ | DCH | DCH-02 | Intersects With | 7 | PCI-DSS Req.3 | 🔴 Critical |  f  |
+| 13 | Phone numbers | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
+| 14 | IP addresses | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
+| 15 | ORG / GPE / NORP entities | L2 NLP | 🛡️ | PRI | PRI-02 | Intersects With | 6 | GDPR Art.4 | 🟠 High |   |
+| 16 | Expanded vendor credentials | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |   |
+| 17 | Employee ID / HR numbers | L1 regex | 🛡️ | HRS | HRS-01 | Intersects With | 6 | GDPR Art.88 | 🔴 Critical |   |
+| 18 | Medical / health data | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 / HIPAA | 🔴 Critical |   |
+| 19 | IBAN / bank account numbers | L1 regex | 🛡️ | DCH | DCH-02 | Intersects With | 7 | PSD2 / GDPR Art.4 | 🔴 Critical |  f  |
+| 20 | Passport / driver licence | L1 regex | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🔴 Critical |   |
+| 21 | Base64-encoded payloads | L1 regex | 🔐 | THR | THR-07 | Intersects With | 7 | — | 🔴 Critical |   |
+| 22 | Prompt injection phrases | L1/L2 | 🔐 | THR | THR-10 | Intersects With | 7 | OWASP LLM01 | 🔴 Critical |   |
+| 23 | Sensitive file access | L1 regex | 🔐🛡️ | IAC | IAC-20 | Intersects With | 7 | GDPR Art.32 | 🔴 Critical |   |
+| 24 | DNS exfiltration | L1 regex | 🔐 | NET | NET-01 | Subset Of | 7 | — | 🟠 High |   |
+| 25 | Path traversal | L1 regex | 🔐 | THR | THR-10 | Intersects With | 6 | OWASP A05 | 🟠 High |   |
+| 26 | Database connection strings | L1 regex | 🔐🛡️ | DCH | DCH-05 | Intersects With | 7 | GDPR Art.32 | 🔴 Critical |   |
+| 27 | Internal hostnames / IPs | L1 regex | 🛡️ | NET | NET-01 | Subset Of | 7 | GDPR Art.32 | 🟠 High |   |
+| 28 | Customer / contract IDs | L1 regex | 🛡️ | PRI | PRI-02 | Intersects With | 6 | GDPR Art.4 | 🟠 High |   |
+| 29 | Biometric data references | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🟠 High |   |
+| 30 | Ethnic / religious / political | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🟠 High |   |
+| 31 | Unicode / homoglyph bypass | L1 | 🔐 | THR | THR-07 | Intersects With | 8 | — | 🟠 High |   |
+| 32 | High-entropy secret detection | L2 NLP | 🔐 | IAC | IAC-01 | Intersects With | 6 | — | 🟠 High |   |
+| 33 | Shell obfuscation / eval | L1 regex | 🔐 | OPS | OPS-05 | Intersects With | 7 | — | 🟠 High |   |
+| 34 | Pipe-chain exfiltration | L1 regex | 🔐 | NET | NET-01 | Subset Of | 7 | — | 🟠 High |   |
+| 35 | Output sanitization | Post-hook | 🛡️ | DCH | DCH-05 | Intersects With | 7 | GDPR Art.32 | 🟡 Medium |   |
+| 36 | ask / human oversight | Meta | ⚖️ | GOV | GOV-04 | Intersects With | 6 | GDPR Art.22 | 🟡 Medium |   |
+| 37 | Audit log of blocked events | Meta | ⚖️ | IRO | IRO-01 | Subset Of | 8 | GDPR Art.5(2) | 🟠 High |   |
+| 38 | Rate limiting / anomaly | Meta | 🔐 | MON | MON-16 | Intersects With | 6 | — | 🟡 Medium |   |
+| 39 | Non-Bash tool coverage | Config | 🔐🛡️ | OPS | OPS-05 | Intersects With | 7 | GDPR Art.32 | 🟡 Medium |   |
+| 40 | Semantic intent scoring | L2 NLP | 🔐🛡️ | THR | THR-10 | Intersects With | 6 | OWASP LLM01 | 🟡 Medium |   |
 
 The **Free** column marks filters included in the free (MIT) tier. Filters without a mark require [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro).
 
@@ -53,23 +55,134 @@ The **Free** column marks filters included in the free (MIT) tier. Filters witho
 
 Existing features that satisfy SCF controls beyond the filter matrix above.
 
-| # | Feature | Component | Scope | SCF Domain | SCF Control | Description | Free |
-|---|---------|-----------|-------|------------|-------------|-------------|:----:|
-| 41 | Unicode normalization (NFKC) | hook_utils.py | 🔐 | TVM | TVM-07 | Input validation — normalizes Unicode before pattern matching | f |
-| 42 | Homoglyph detection (Cyrillic/Greek) | hook_utils.py | 🔐 | TVM | TVM-07 | Detects confusable character substitution attacks | f |
-| 43 | Zero-width character stripping | hook_utils.py | 🔐 | TVM | TVM-07 | Removes invisible characters used to evade filters | f |
-| 44 | Two-layer override system | override_resolver.py | ⚖️ | CHG | CHG-02 | Change control — user vs project override governance | f |
-| 45 | Override expiry dates | override_resolver.py | ⚖️ | CFG | CFG-02 | Configuration enforcement — time-limited exceptions | f |
-| 46 | Override validation CLI | override_cli.py | ⚖️ | CFG | CFG-04 | Configuration verification — validates override integrity | f |
-| 47 | Data-driven test suite (979 cases) | tests/ | 🔐🛡️ | SLC | SLC-10 | Security testing — validates all filter behaviors | f |
-| 48 | Benchmark suite | benchmarks/ | 🔐 | SEA | SEA-03 | Performance engineering — ensures filters meet latency SLAs | f |
-| 49 | Graceful degradation (Pro → Free) | install_pro.sh | 🔐🛡️ | BCD | BCD-04 | Contingency operations — falls back to free tier if Pro unavailable | |
-| 50 | Deny/ask/allow access model | regex_filter.py | 🔐 | IAC | IAC-20 | Access enforcement — graduated control for AI agent actions | f |
-| 51 | Two-layer separation (user/project) | override_resolver.py | ⚖️ | IAC | IAC-21 | Separation of duties — distinct authority levels for overrides | f |
-| 52 | JSON rule configs as policies | filter_rules*.json | ⚖️ | GOV | GOV-02 | Machine-readable security policies in declarative format | f |
-| 53 | Defense-in-depth pipeline | settings.json | 🔐 | SEA | SEA-01 | Secure architecture — 3-layer hook pipeline design | f |
-| 54 | License token machine binding | token.py (Pro) | 🔐 | IAC | IAC-15 | Device identification — binds license to hardware | |
-| 55 | Cross-module integrity hashing | S2 (Pro) | 🔐 | SEA | SEA-15 | Tamper detection — verifies module integrity at runtime | |
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|-------------|:----:|
+| 41 | Unicode normalization (NFKC) | hook_utils.py | 🔐 | THR | THR-07 | Intersects With | 8 | Input validation — normalizes Unicode before pattern matching | f |
+| 42 | Homoglyph detection (Cyrillic/Greek) | hook_utils.py | 🔐 | THR | THR-07 | Intersects With | 8 | Detects confusable character substitution attacks | f |
+| 43 | Zero-width character stripping | hook_utils.py | 🔐 | THR | THR-07 | Intersects With | 8 | Removes invisible characters used to evade filters | f |
+| 44 | Two-layer override system | override_resolver.py | ⚖️ | CHG | CHG-02 | Intersects With | 6 | Change control — user vs project override governance | f |
+| 45 | Override expiry dates | override_resolver.py | ⚖️ | CFG | CFG-02 | Intersects With | 6 | Configuration enforcement — time-limited exceptions | f |
+| 46 | Override validation CLI | override_cli.py | ⚖️ | CFG | CFG-04 | Intersects With | 7 | Configuration verification — validates override integrity | f |
+| 47 | Data-driven test suite (979 cases) | tests/ | 🔐🛡️ | TDA | TDA-10 | Intersects With | 7 | Security testing — validates all filter behaviors | f |
+| 48 | Benchmark suite | benchmarks/ | 🔐 | SEA | SEA-03 | Intersects With | 5 | Performance engineering — ensures filters meet latency SLAs | f |
+| 49 | Graceful degradation (Pro → Free) | install_pro.sh | 🔐🛡️ | BCD | BCD-04 | Intersects With | 6 | Contingency operations — falls back to free tier if Pro unavailable | |
+| 50 | Deny/ask/allow access model | regex_filter.py | 🔐 | IAC | IAC-20 | Intersects With | 7 | Access enforcement — graduated control for AI agent actions | f |
+| 51 | Two-layer separation (user/project) | override_resolver.py | ⚖️ | IAC | IAC-21 | Intersects With | 6 | Separation of duties — distinct authority levels for overrides | f |
+| 52 | JSON rule configs as policies | filter_rules*.json | ⚖️ | GOV | GOV-02 | Intersects With | 6 | Machine-readable security policies in declarative format | f |
+| 53 | Defense-in-depth pipeline | settings.json | 🔐 | SEA | SEA-01 | Subset Of | 8 | Secure architecture — 3-layer hook pipeline design | f |
+| 54 | License token machine binding | token.py (Pro) | 🔐 | IAC | IAC-15 | Intersects With | 5 | Device identification — binds license to hardware | |
+| 55 | Cross-module integrity hashing | S2 (Pro) | 🔐 | SEA | SEA-15 | Intersects With | 7 | Tamper detection — verifies module integrity at runtime | |
+
+## EU AI Act Controls — AAT Domain (12 controls)
+
+Mappings to the SCF Artificial Intelligence & Autonomous Technology (AAT) domain, verified against the STRM EU AI Act crosswalk (scf-strm-emea-eu-ai-act). Our tool functions as an AI governance layer for Claude Code, making these controls directly applicable.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | EU AI Act | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|-----------|-------------|:----:|
+| 56 | Regex + NLP input validation | regex_filter.py, llm_filter.py | 🔐🛡️ | AAT | AAT-10 | Subset Of | 8 | Art.9 | AI TEVV — validates all AI agent input before execution | f |
+| 57 | Output sanitizer redaction | output_sanitizer.py | 🛡️ | AAT | AAT-23 | Intersects With | 6 | Art.52 | AI output marking — redacts sensitive data from AI agent output | f |
+| 58 | ask / human approval model | regex_filter.py | ⚖️ | AAT | AAT-22.1 | Equal | 10 | Art.14 | AI human oversight — human approval before risky AI actions | f |
+| 59 | Audit log of AI actions | audit_logger.py | ⚖️ | AAT | AAT-16.8 | Intersects With | 7 | Art.12 | AI event logging — JSONL log of all blocked/redacted AI actions | f |
+| 60 | Rate limiter anomaly detection | rate_limiter.py | 🔐 | AAT | AAT-16 | Intersects With | 7 | Art.9 | AI production monitoring — detects anomalous violation patterns | f |
+| 61 | Prompt injection detection | filter_rules.json | 🔐 | AAT | AAT-17 | Intersects With | 8 | Art.5 | AI harm prevention — blocks jailbreak/injection attacks | f |
+| 62 | Defense-in-depth pipeline | settings.json | 🔐 | AAT | AAT-02.3 | Intersects With | 7 | Art.9 | Adequate AI protections — 3-layer security pipeline | f |
+| 63 | 979-case test suite | tests/ | 🔐🛡️ | AAT | AAT-10.5 | Intersects With | 7 | Art.9 | AI TEVV security assessment — comprehensive control testing | f |
+| 64 | Graceful degradation Pro→Free | llm_client.py | 🔐 | AAT | AAT-15.2 | Intersects With | 6 | Art.7 | AI deactivation — safe degradation when Pro unavailable | |
+| 65 | Incident reporting via audit log | audit_logger.py | ⚖️ | AAT | AAT-16.9 | Intersects With | 6 | Art.73 | AI serious incident reporting — structured incident data | f |
+| 66 | Filter rules as AI risk controls | filter_rules*.json | ⚖️ | AAT | AAT-09 | Intersects With | 6 | Art.9 | AI risk profiling — declarative JSON configs define AI risk boundaries | f |
+| 67 | Override governance for AI actions | override_resolver.py | ⚖️ | AAT | AAT-22.2 | Equal | 10 | Art.14 | AI oversight measures — two-layer override system for AI exceptions | f |
+
+## GDPR Controls — STRM-Verified (7 controls)
+
+Additional GDPR mappings verified against the STRM EU GDPR crosswalk (scf-strm-emea-eu-gdpr). These cover GDPR articles not addressed by the filter table above.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|------------|-------------|:----:|
+| 68 | PII filter pipeline security | regex_filter.py, llm_filter.py | 🛡️ | PRI | PRI-01.6 | Intersects With | 8 | GDPR Art.25/32 | Security of personal data — PII filters enforce data protection by design and by default | f |
+| 69 | Breach evidence capture | audit_logger.py | ⚖️ | IRO | IRO-04.1 | Subset Of | 8 | GDPR Art.33 | Data breach support — audit log captures structured breach evidence | f |
+| 70 | Compliance demonstration | audit_logger.py, compliance.md | ⚖️ | CPL | CPL-01.3 | Intersects With | 7 | GDPR Art.5(2) | Accountability — audit log demonstrates data protection control effectiveness | f |
+| 71 | PII usage restriction enforcement | filter_rules.json | 🛡️ | PRI | PRI-05.4 | Subset Of | 8 | GDPR Art.6 | Usage restrictions — filters block PII transmission to untrusted endpoints | f |
+| 72 | Cross-border data transfer blocking | filter_rules.json | 🛡️ | DCH | DCH-25 | Intersects With | 6 | GDPR Art.44 | Transfer controls — network filters block sensitive data to untrusted endpoints | f |
+| 73 | Cryptographic material protection | filter_rules.json | 🔐 | CRY | CRY-01 | Subset Of | 9 | GDPR Art.32 | Cryptographic controls — blocks private keys, certificates, and crypto exposure | f |
+| 74 | AI data processing documentation | audit_logger.py | ⚖️ | PRI | PRI-14 | Intersects With | 7 | GDPR Art.30 | Processing records — documents AI agent data processing with hashes and timestamps | f |
+
+## ISO 42001 Controls — AI Management System (8 controls)
+
+Additional mappings to ISO 42001:2023 (AI Management Systems), verified against the STRM ISO 42001 crosswalk (scf-strm-general-iso-42001-2023). These controls cover AI governance, risk management, data quality, and assurance requirements.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | ISO 42001 | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|-----------|-------------|:----:|
+| 75 | AI governance program alignment | compliance.md, filter_rules*.json | ⚖️ | AAT | AAT-01 | Intersects With | 7 | §4.1/4.4 | AI management system — hook system provides the technical control layer of an AIMS | f |
+| 76 | AI risk management decisions | override_resolver.py, override_cli.py | ⚖️ | AAT | AAT-07 | Intersects With | 6 | §6.1 | AI risk decisions — override system allows risk-based exception decisions with expiry | f |
+| 77 | AI incident & error reporting | audit_logger.py | ⚖️ | AAT | AAT-11.4 | Intersects With | 7 | §A.8.3 | AI incident reporting — audit log captures errors and blocked actions for review | f |
+| 78 | AI data source integrity | hook_utils.py | 🔐 | AAT | AAT-12.2 | Intersects With | 5 | §A.6.1.3 | Data source integrity — Unicode normalization ensures input integrity before processing | f |
+| 79 | AI post-deployment monitoring | rate_limiter.py, audit_logger.py | 🔐 | AAT | AAT-10.13 | Intersects With | 6 | §A.9.4 | Post-deployment monitoring — rate limiter and audit log track AI behavior in production | f |
+| 80 | Change management for AI controls | override_cli.py | ⚖️ | CHG | CHG-01 | Subset Of | 8 | §6.3 | Change management program — override CLI provides structured change process | f |
+| 81 | Data quality for AI input | hook_utils.py, regex_filter.py | 🔐 | DCH | DCH-22 | Intersects With | 6 | §A.7 | Data quality — input normalization and validation ensures quality for AI processing | f |
+| 82 | Information assurance operations | tests/, benchmarks/ | 🔐 | IAO | IAO-01 | Subset Of | 9 | §A.6.2.5 | Information assurance — 979 tests + benchmarks verify AI control effectiveness | f |
+
+## DORA & NIS2 Controls — EU Resilience (6 controls)
+
+Additional mappings for EU Digital Operational Resilience Act (DORA, Regulation 2022/2554) and NIS2 Directive (2022/2555), verified against STRM crosswalks. Relevant for EU financial sector and critical infrastructure deployments.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|------------|-------------|:----:|
+| 83 | ICT incident classification | rate_limiter.py, audit_logger.py | ⚖️ | IRO | IRO-02 | Intersects With | 6 | DORA Art.17 / NIS2 Art.23 | Incident handling — rate limiter classifies violations by severity | f |
+| 84 | Continuous monitoring program | rate_limiter.py, audit_logger.py | 🔐 | MON | MON-01 | Intersects With | 7 | DORA Art.10 | Continuous monitoring — real-time audit logging and rolling-window violation tracking | f |
+| 85 | ICT operations security | regex_filter.py, output_sanitizer.py | 🔐 | OPS | OPS-01 | Intersects With | 7 | DORA Art.9 | Operations security — hook pipeline enforces controls on all AI agent operations | f |
+| 86 | Vulnerability detection | regex_filter.py, llm_filter.py | 🔐 | VPM | VPM-01 | Intersects With | 6 | DORA Art.9 / NIS2 Art.21 | Vulnerability management — detects credential exposure, injection, exfiltration | f |
+| 87 | Incident root cause analysis support | audit_logger.py | ⚖️ | IRO | IRO-13 | Intersects With | 6 | NIS2 Art.23 | Root cause analysis — structured audit logs enable post-incident forensics | f |
+| 88 | Supply chain risk controls | filter_rules.json | 🔐 | TPM | TPM-03 | Intersects With | 5 | NIS2 Art.21(2d) | Supply chain security — network filters block untrusted endpoints | f |
+
+## SOC 2 Controls — STRM-Verified (4 controls)
+
+Additional SOC 2 Trust Service Criteria mappings verified against the STRM AICPA TSC crosswalk (scf-strm-general-aicpa-tsc-2017). Covers Common Criteria and Privacy criteria not addressed by the control tables above.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|------------|-------------|:----:|
+| 89 | Security controls oversight | tests/, compliance.md | ⚖️ | CPL | CPL-02 | Intersects With | 7 | SOC 2 CC4 | Controls oversight — test suite + compliance doc provide independent control verification | f |
+| 90 | Security performance metrics | benchmarks/, audit_logger.py | ⚖️ | GOV | GOV-05 | Intersects With | 6 | SOC 2 CC4/CC5 | Measures of performance — benchmarks track latency SLAs; audit log tracks violation rates | f |
+| 91 | PII collection restriction | filter_rules.json, filter_rules_write.json | 🛡️ | PRI | PRI-04 | Intersects With | 7 | SOC 2 P3 | Restrict collection — blocks AI agent from collecting PII beyond identified purpose | f |
+| 92 | Governance program documentation | CLAUDE.md, compliance.md | ⚖️ | GOV | GOV-01 | Intersects With | 6 | SOC 2 CC1 | Governance program — CLAUDE.md + compliance.md document security governance | f |
+
+## DPMP Controls — Data Privacy Principles (5 controls)
+
+Additional mappings to the SCF Data Privacy Management Principles (86 principles across 11 domains), verified against the STRM DPMP crosswalk (scf-strm-data-privacy-management-principles). Fills gaps in Transparency, Data Lifecycle, and Risk Management principles.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|------------|-------------|:----:|
+| 93 | Privacy purpose specification | compliance.md, filter_rules.json | 🛡️ | PRI | PRI-02.1 | Intersects With | 5 | DPMP P4 | Purpose specification — documents what data each filter protects and why | f |
+| 94 | Data protection enforcement | regex_filter.py, output_sanitizer.py | 🛡️ | DCH | DCH-01 | Intersects With | 7 | DPMP P5 | Data protection — enforces protection across input, processing, and output lifecycle | f |
+| 95 | De-identification via redaction | output_sanitizer.py | 🛡️ | DCH | DCH-23 | Intersects With | 7 | DPMP P5.10 | De-identification — replaces PII with [REDACTED] tokens in command output | f |
+| 96 | Privacy risk assessment | override_resolver.py, filter_rules.json | ⚖️ | RSK | RSK-04 | Intersects With | 6 | DPMP P9 | Risk assessment — filter rules define risk boundaries; overrides allow exceptions | f |
+| 97 | Data protection impact assessment | compliance.md | ⚖️ | RSK | RSK-10 | Intersects With | 5 | DPMP P9.5 | DPIA — compliance.md documents controls and their regulatory impact | f |
+
+## Evidence & Reporting Controls (3 controls)
+
+New capabilities from Phase 3 — evidence collection and compliance reporting.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|------------|-------------|:----:|
+| 98 | SCF evidence collector | evidence_collector.py | ⚖️ | CPL | CPL-01.3 | Intersects With | 8 | GDPR Art.5(2) / SOC 2 CC4 | Compliance evidence — groups audit events by SCF control with domain/regulation detail | f |
+| 99 | SCF-tagged audit log entries | audit_logger.py | ⚖️ | MON | MON-03 | Intersects With | 7 | DORA Art.12 / NIS2 Art.23 | Event log content — audit entries include scf_domain, scf_controls, scf_regulations | f |
+| 100 | Compliance summary report | evidence_collector.py | ⚖️ | GOV | GOV-05 | Intersects With | 6 | SOC 2 CC4/CC5 | Measures of performance — generates domain-level and control-level compliance metrics | f |
+
+## Additional SCF Controls — Deep Audit (10 controls)
+
+Additional controls identified through line-by-line review of all filter capabilities against the full SCF taxonomy (1,433 controls across 77 STRM files). Each maps a tool capability to an SCF control not previously covered.
+
+| # | Feature | Component | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Description | Free |
+|---|---------|-----------|-------|------------|-------------|------|:---:|------------|-------------|:----:|
+| 101 | Output data masking | output_sanitizer.py | 🛡️ | DCH | DCH-17 | Intersects With | 7 | GDPR Art.32 | Data masking — replaces sensitive data with [REDACTED] tokens in output | f |
+| 102 | Cryptographic key exposure prevention | filter_rules.json, filter_rules_write.json | 🔐 | CRY | CRY-09 | Intersects With | 6 | GDPR Art.32 | Key management — blocks private key, PEM cert, and crypto material exposure | f |
+| 103 | Data flow access control list | filter_rules.json | 🔐 | NET | NET-04 | Intersects With | 7 | — | Data flow ACL — trusted endpoint allowlist + untrusted network block | f |
+| 104 | Behavioral indicators of compromise | rate_limiter.py | 🔐 | IRO | IRO-03 | Intersects With | 6 | — | IOC detection — rate limiter identifies patterns of repeated violations | f |
+| 105 | Pattern-based threat intelligence | filter_rules.json | 🔐 | THR | THR-01 | Intersects With | 6 | — | Threat intelligence — 180+ regex patterns form curated threat signatures | f |
+| 106 | Network intrusion prevention | filter_rules.json | 🔐 | NET | NET-08 | Intersects With | 6 | DORA Art.9 | Network IPS — exfiltration and pipe-chain filters block network attacks | f |
+| 107 | Audit event log retention | audit_logger.py | ⚖️ | MON | MON-10 | Intersects With | 5 | DORA Art.12 | Log retention — append-only JSONL persistence of all security events | f |
+| 108 | Insider threat evasion detection | filter_rules.json | 🔐 | THR | THR-04 | Intersects With | 5 | — | Insider threats — detects shell obfuscation, eval tricks, filter evasion | f |
+| 109 | Command vulnerability scanning | regex_filter.py | 🔐 | VPM | VPM-06 | Intersects With | 6 | NIS2 Art.21 | Vulnerability scanning — scans AI agent commands for attack patterns | f |
+| 110 | Secure coding enforcement | filter_rules_write.json | 🔐 | TDA | TDA-08 | Intersects With | 5 | — | Secure coding — blocks credentials and secrets in source file writes | f |
 
 ---
 
@@ -81,24 +194,115 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 |---|---|
 | **GOVERN (GV)** | GOV: "ask" human oversight, audit logging, override governance, managed layer (Pro) |
 | **IDENTIFY (ID)** | AST: filter_rules*.json define protected assets; compliance.md classifies data types |
-| **PROTECT (PR)** | IAC+CRY+NET+PRI+DAT+DCH+END: 30+ filters across all protection categories |
-| **DETECT (DE)** | TVM+OPS+MON: regex matching, NLP detection (Pro), rate limiter anomaly detection |
+| **PROTECT (PR)** | IAC+CRY+NET+PRI+DCH: 30+ filters across all protection categories |
+| **DETECT (DE)** | THR+VPM+OPS+MON: regex matching, NLP detection (Pro), rate limiter anomaly detection |
 | **RESPOND (RS)** | IRO: audit log, deny/ask actions, rate limiter escalation, graceful degradation |
 | **RECOVER (RC)** | BCD: Pro → Free degradation, override rollback, settings.json backup |
 
-### SOC 2 Trust Service Criteria
+### EU AI Act (Regulation 2024/1689)
 
-| TSC Category | claude-privacy-hook Mapping |
+| EU AI Act Article | claude-privacy-hook Mapping |
 |---|---|
-| **CC6 — Logical & Physical Access** | IAC filters (credentials, tokens, keys), override access control, license auth (Pro) |
-| **CC7 — System Operations** | OPS filters (shell obfuscation, rate limiting), audit logging, continuous monitoring |
-| **CC8 — Change Management** | Override CLI (add/remove/validate), managed overrides (Pro), settings.json versioning |
-| **P1 — Privacy — Notice** | "ask" action provides notice before allowing risky operations |
-| **P3 — Privacy — Collection** | PRI filters prevent unauthorized PII collection by AI agent |
-| **P4 — Privacy — Use** | Output sanitizer prevents PII from being used in responses |
-| **P6 — Privacy — Disposal** | Audit log rotation (planned) |
-| **A1 — Availability** | Graceful degradation, rate limiting (prevents resource exhaustion) |
-| **C1 — Confidentiality** | All credential and PII filters enforce confidentiality |
+| **Art.5 — Prohibited Practices** | AAT-17: Prompt injection detection blocks manipulative/deceptive AI use |
+| **Art.9 — Risk Management** | AAT-10, AAT-02.3, AAT-09, AAT-10.5, AAT-16: Input validation, defense-in-depth, risk profiling, security testing, production monitoring |
+| **Art.12 — Record-Keeping** | AAT-16.8: Audit logger produces structured JSONL records of all AI agent actions |
+| **Art.14 — Human Oversight** | AAT-22.1, AAT-22.2: "ask" model requires human approval; override governance provides oversight measures |
+| **Art.52 — Transparency** | AAT-23: Output sanitizer marks/redacts AI-generated content containing sensitive data |
+| **Art.73 — Incident Reporting** | AAT-16.9: Audit log provides structured data for serious incident reporting |
+
+### ISO 42001:2023 (AI Management Systems)
+
+| ISO 42001 Clause | claude-privacy-hook Mapping |
+|---|---|
+| **§4.1/4.4 — Context & AIMS** | AAT-01: Hook system provides the technical control layer of an AI Management System |
+| **§6.1 — Risk assessment** | AAT-07, AAT-09: Override system enables risk-based decisions; filter rules define risk profiles |
+| **§6.3 — Change management** | CHG-01, CHG-02: Override CLI provides structured change control for AI security rules |
+| **§7 — Data management** | DCH-22, AAT-12.2: Input normalization ensures data quality and integrity |
+| **§8.1 — Operational planning** | AAT-02.3: Defense-in-depth pipeline implements operational AI controls |
+| **§9.1/9.2 — Monitoring & audit** | AAT-10, AAT-10.13, IAO-01: Tests, benchmarks, and production monitoring verify controls |
+| **§A.6.2.5 — Verification** | IAO-01: 979-case test suite + benchmarks provide information assurance |
+| **§A.8.3 — Incident reporting** | AAT-11.4, AAT-16.8, AAT-16.9: Audit log captures AI incidents and errors |
+| **§A.9.4 — Post-deployment** | AAT-10.13, AAT-16: Rate limiter and audit log monitor AI behavior in production |
+
+### GDPR (Regulation 2016/679)
+
+| GDPR Article | claude-privacy-hook Mapping |
+|---|---|
+| **Art.4 — Definitions (personal data)** | PRI-01, PRI-02: PII filters detect all Art.4 personal data categories (names, emails, IDs, IPs, financial) |
+| **Art.5(2) — Accountability** | CPL-01.3, IRO-01: Audit log demonstrates control effectiveness; compliance.md documents controls |
+| **Art.6 — Lawful processing** | PRI-05.4: Filters block unauthorized PII processing by AI agent |
+| **Art.9 — Special categories** | PRI-01, PRI-03: Detects health, biometric, ethnic, religious, political data |
+| **Art.22 — Automated decisions** | GOV-04, AAT-22.1: "ask" model ensures human oversight of AI decisions |
+| **Art.25 — Data protection by design** | PRI-01.6: Three-layer filter pipeline enforces privacy by design |
+| **Art.30 — Records of processing** | PRI-14: Audit log documents AI agent data processing activities |
+| **Art.32 — Security of processing** | PRI-01.6, CRY-01, IAC-20, DCH-05, NET-01: Full security stack (crypto, access, network, data) |
+| **Art.33 — Breach notification** | IRO-04.1: Audit log captures structured breach evidence for notification |
+| **Art.44 — Transfer to third countries** | DCH-25: Network filters block sensitive data to untrusted endpoints |
+| **Art.88 — Employment context** | HRS-01: Employee ID/HR number detection filters |
+
+### DORA (Regulation 2022/2554 — Digital Operational Resilience)
+
+| DORA Article | claude-privacy-hook Mapping |
+|---|---|
+| **Art.5 — ICT governance** | GOV-04: Assigned security responsibilities; override governance structure |
+| **Art.9 — ICT security** | SEA-01, SEA-03, CFG-02, OPS-01, VPM-01: Defense-in-depth, hardened configs, operations security, vulnerability detection |
+| **Art.9.4 — Access controls** | IAC-01, IAC-21, CHG-01, CHG-02: Identity management, least privilege, change control |
+| **Art.10 — Monitoring** | MON-01, MON-16: Continuous monitoring via audit log; anomaly detection via rate limiter |
+| **Art.11 — Continuity** | BCD-04: Graceful degradation Pro → Free; contingency testing |
+| **Art.14 — Incident response** | IRO-01, IRO-02: Incident response operations; severity classification via rate limiter |
+| **Art.17 — Incident classification** | IRO-02: Rate limiter classifies violations by threshold (warn/block) |
+
+### NIS2 (Directive 2022/2555 — Network & Information Security)
+
+| NIS2 Article | claude-privacy-hook Mapping |
+|---|---|
+| **Art.21.1 — Risk management measures** | GOV-02, SEA-01: Published security policies; secure engineering principles |
+| **Art.21.2(a) — Risk analysis** | RSK via filter rules: Declarative risk-based rule configs define acceptable risk boundaries |
+| **Art.21.2(b) — Incident handling** | IRO-01, IRO-02, IRO-13: Incident response, classification, root cause analysis via audit log |
+| **Art.21.2(d) — Supply chain** | TPM-03: Network filters block untrusted third-party endpoints |
+| **Art.21.2(e) — Network security** | NET-01: Network security controls (endpoint allowlisting, exfiltration blocking) |
+| **Art.21.2(h) — Cryptography** | CRY-01: Detects and blocks private key / certificate exposure |
+| **Art.21.2(i) — HR & access** | HRS-01, IAC-01: Employee data protection; identity and access management |
+| **Art.21.5 — Technical measures** | SEA-01, CFG-02: Secure engineering, hardened baseline configurations |
+| **Art.23 — Incident notification** | IRO-13: Structured audit logs support incident notification and root cause analysis |
+
+### SCF Data Privacy Management Principles (DPMP)
+
+| DPMP Principle | Coverage | claude-privacy-hook Mapping |
+|---|:---:|---|
+| **P1 — Data Privacy by Design** | ✓ 27% | PRI-01, DCH-02, GOV-01: Privacy program, data classification, governance |
+| **P2 — Data Subject Participation** | ✓ 38% | PRI-03: "ask" model provides choice; override system enables consent-based exceptions |
+| **P3 — Limited Collection & Use** | ✓ 25% | PRI-04: Filters restrict PII collection by AI agent to identified purposes |
+| **P4 — Transparency** | ✓ new | PRI-02.1: compliance.md documents purpose specification for each filter |
+| **P5 — Data Lifecycle Management** | ✓ new | DCH-01, DCH-23, PRI-14: Data protection, de-identification via [REDACTED], processing records |
+| **P6 — Data Subject Rights** | ○ gap | No direct tool feature (organizational responsibility, not a technical control) |
+| **P7 — Cybersecurity by Design** | ✓ 21% | CRY-01, HRS-01, IAO-01: Crypto protection, HR data security, information assurance |
+| **P8 — Incident Response** | ✓ 67% | IRO-01, IRO-02: Incident response operations, incident handling via audit log |
+| **P9 — Risk Management** | ✓ new | RSK-04, RSK-10: Risk assessment via filter rules; DPIA via compliance.md |
+| **P10 — Third-Party Management** | ✓ 20% | TPM-03: Network filters block untrusted third-party endpoints |
+| **P11 — Business Environment** | ✓ 22% | CPL-02, GOV-02: Controls oversight, published governance documentation |
+
+### SOC 2 Trust Service Criteria (STRM-verified)
+
+| TSC Category | SCF Controls (verified) | claude-privacy-hook Mapping |
+|---|---|---|
+| **CC1 — Control Environment** | GOV-01, GOV-02, GOV-04, HRS-01, PRI-01, AAT-01 | Governance documentation, assigned responsibilities, privacy program, AI governance |
+| **CC2 — Communication & Information** | GOV-02, IRO-01, IRO-02, DCH-02, DCH-22, CHG-01/02, PRI-01/02/14 | Published policies, incident response, data classification, change control, privacy notices |
+| **CC3 — Risk Assessment** | CHG-01/02, HRS-01, SEA-01, THR-10, TPM-03, VPM-01 | Change management, threat analysis, supply chain risk, vulnerability detection |
+| **CC4 — Monitoring Activities** | IAO-01, CPL-02, GOV-05 | 979-case test suite, controls oversight, performance metrics via benchmarks |
+| **CC5 — Control Activities** | GOV-02, GOV-04, IAC-21, SEA-01 | Published policies, assigned roles, least privilege, secure engineering |
+| **CC6 — Logical & Physical Access** | IAC-01, IAC-15, IAC-20, IAC-21, CRY-01/03, NET-01, DCH-02, CFG-02, PRI-01.6 | Identity management, access enforcement, crypto, network controls, data classification |
+| **CC7 — System Operations** | IRO-01, IRO-02, IRO-04.1, IRO-13, MON-01, MON-16, BCD-04, CFG-02 | Incident response, breach detection, root cause analysis, continuous monitoring, anomaly detection |
+| **CC8 — Change Management** | CHG-01, CHG-02, CFG-02, VPM-01, SEA-01, PRI-01 | Override CLI, configuration change control, vulnerability management |
+| **CC9 — Risk Mitigation** | TPM-03, VPM-01 | Supply chain risk controls, vulnerability detection |
+| **P1 — Notice** | GOV-02, PRI-01, PRI-02 | "ask" action provides notice; published privacy policies and data privacy notices |
+| **P2 — Choice & Consent** | PRI-03 | Override system allows user choice; "ask" model obtains consent |
+| **P3 — Collection** | PRI-03, PRI-04 | Filters restrict PII collection by AI agent to identified purposes |
+| **P4 — Use, Retention, Disposal** | PRI-05.4, PRI-01.6 | Usage restrictions; output sanitizer prevents PII in responses |
+| **P6 — Disclosure** | IRO-04.1 | Audit log captures breach disclosure evidence |
+| **P8 — Quality** | PRI-14 | Audit log documents data processing activities |
+| **A1 — Availability** | BCD-04, IRO-01, IRO-02 | Graceful degradation, incident handling, contingency testing |
+| **C1 — Confidentiality** | DCH-02, CRY-01 | Data classification, all credential and PII filters enforce confidentiality |
 
 ### ISO 27001 Annex A (selected controls)
 
@@ -127,6 +331,8 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 | **Scope** | Protection category — see *Scope Icons* below |
 | **SCF Domain** | Secure Controls Framework domain code |
 | **SCF Control** | Specific SCF control identifier |
+| **STRM** | NIST IR 8477 Set Theory Relationship Mapping type — see *STRM Types* below |
+| **Str** | Relationship strength (1–10) — how directly our implementation addresses the control objective |
 | **Regulation** | Applicable regulatory standard (GDPR, PCI-DSS, HIPAA, etc.) |
 | **Value** | Risk criticality rating |
 
@@ -140,6 +346,16 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 | **Post-hook** | Runs after command execution to sanitize output |
 | **Meta** | Infrastructure-level controls (logging, rate limiting, oversight) |
 | **Config** | Configuration-level controls (hook registration, tool coverage) |
+
+### STRM Relationship Types (NIST IR 8477)
+
+| Type | Meaning | Our Usage |
+|------|---------|-----------|
+| **Subset Of** | Our feature is fully contained within the SCF control objective | Strong match — our implementation directly satisfies a portion of the control |
+| **Intersects With** | Our feature partially overlaps with the SCF control objective | Moderate match — our implementation addresses some but not all aspects |
+| **Equal** | Our feature is equivalent to the SCF control objective | Exact match — our implementation fully satisfies the control |
+
+Strength ratings (1–10): 1 = nominal, 5 = moderate, 8 = strong, 10 = direct/equal.
 
 ### Scope Icons
 
@@ -160,28 +376,33 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 
 ### SCF Domains
 
+Codes follow the official [Secure Controls Framework](https://securecontrolsframework.com) taxonomy (33 domains).
+
 | Code | Domain |
 |------|--------|
-| **IAC** | Identification & Access Control |
-| **CRY** | Cryptographic Protections |
-| **NET** | Network Security |
-| **PRI** | Privacy |
-| **DAT** | Data Protection |
-| **TVM** | Threat & Vulnerability Management |
-| **HRS** | Human Resources Security |
-| **END** | Endpoint Security |
-| **DCH** | Data Classification & Handling |
-| **OPS** | Operations Security |
-| **GOV** | Governance |
-| **IRO** | Incident Response & Operations |
-| **CHG** | Change Management |
-| **CFG** | Configuration Management |
-| **SLC** | Software Development Lifecycle |
-| **SEA** | Secure Engineering & Architecture |
-| **BCD** | Business Continuity & Disaster Recovery |
+| **AAT** | Artificial Intelligence & Autonomous Technology |
 | **AST** | Asset Management |
+| **BCD** | Business Continuity & Disaster Recovery |
+| **CFG** | Configuration Management |
+| **CHG** | Change Management |
+| **CPL** | Compliance |
+| **CRY** | Cryptographic Protections |
+| **DCH** | Data Classification & Handling |
+| **GOV** | Cybersecurity & Data Privacy Governance |
+| **HRS** | Human Resources Security |
+| **IAC** | Identification & Authentication |
+| **IAO** | Information Assurance |
+| **IRO** | Incident Response |
 | **MON** | Continuous Monitoring |
+| **NET** | Network Security |
+| **OPS** | Security Operations |
+| **PRI** | Data Privacy |
 | **RSK** | Risk Management |
+| **SEA** | Secure Engineering & Architecture |
+| **TDA** | Technology Development & Acquisition |
+| **THR** | Threat Management |
+| **TPM** | Third-Party Management |
+| **VPM** | Vulnerability & Patch Management |
 
 ### Regulations & Frameworks
 
@@ -190,8 +411,13 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 | **GDPR Art.4** | General Data Protection Regulation — definitions of personal data |
 | **GDPR Art.9** | GDPR — special categories of personal data (health, biometric, ethnic, etc.) |
 | **GDPR Art.22** | GDPR — automated decision-making and human oversight |
+| **GDPR Art.25** | GDPR — data protection by design and by default |
+| **GDPR Art.30** | GDPR — records of processing activities |
 | **GDPR Art.32** | GDPR — security of processing |
+| **GDPR Art.33** | GDPR — notification of personal data breach to supervisory authority |
+| **GDPR Art.44** | GDPR — general principle for transfers to third countries |
 | **GDPR Art.5(2)** | GDPR — accountability principle |
+| **GDPR Art.6** | GDPR — lawfulness of processing (legitimate basis) |
 | **GDPR Art.88** | GDPR — processing in the employment context |
 | **PCI-DSS Req.3** | Payment Card Industry Data Security Standard — protect stored cardholder data |
 | **HIPAA** | Health Insurance Portability and Accountability Act |
@@ -200,4 +426,13 @@ Existing features that satisfy SCF controls beyond the filter matrix above.
 | **OWASP A05** | OWASP Top 10 — security misconfiguration (path traversal) |
 | **NIST CSF 2.0** | NIST Cybersecurity Framework 2.0 — Govern, Identify, Protect, Detect, Respond, Recover |
 | **SOC 2** | Service Organization Control 2 — Trust Service Criteria (CC, P, A, C) |
+| **DORA** | EU Digital Operational Resilience Act (Regulation 2022/2554) — ICT risk for financial sector |
+| **DPMP** | SCF Data Privacy Management Principles — 86 principles across 11 domains |
+| **EU AI Act** | EU Regulation on Artificial Intelligence — risk-based framework for AI systems (Art.5-73) |
+| **NIS2** | EU Network & Information Security Directive (2022/2555) — critical infrastructure cybersecurity |
 | **ISO 27001** | International standard for information security management (Annex A controls) |
+| **ISO 42001** | International standard for Artificial Intelligence Management Systems (AIMS) |
+
+---
+
+*SCF control identifiers referenced from the [Secure Controls Framework](https://securecontrolsframework.com), CC BY-ND 4.0.*

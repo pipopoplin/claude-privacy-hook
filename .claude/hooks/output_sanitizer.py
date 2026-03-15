@@ -61,13 +61,15 @@ def _compile_patterns(rules: list[dict]) -> list[dict]:
     return compiled
 
 
-def redact_text(text: str, compiled_rules: list[dict]) -> tuple[str, list[str]]:
+def redact_text(text: str, compiled_rules: list[dict]) -> tuple[str, list[str], dict | None]:
     """Apply all rules and redact matched content in *text*.
 
-    Returns the redacted text and a list of matched labels.
+    Returns the redacted text, a list of matched labels, and SCF metadata
+    from the first triggered rule (or None).
     """
     normalized = normalize_unicode(text)
     all_labels: list[str] = []
+    first_scf: dict | None = None
 
     for rule in compiled_rules:
         match_mode = rule.get("match", "any")
@@ -91,6 +93,9 @@ def redact_text(text: str, compiled_rules: list[dict]) -> tuple[str, list[str]]:
         if action == "allow":
             continue
 
+        if first_scf is None:
+            first_scf = rule.get("scf")
+
         for regex, label in matches:
             all_labels.append(label)
             # Redact in both the original text and its normalized form so we
@@ -98,46 +103,51 @@ def redact_text(text: str, compiled_rules: list[dict]) -> tuple[str, list[str]]:
             text = regex.sub("[REDACTED]", text)
             normalized = regex.sub("[REDACTED]", normalized)
 
-    return text, all_labels
+    return text, all_labels, first_scf
 
 
 def evaluate_output(
     compiled_rules: list[dict],
     hook_input: dict,
-) -> tuple[dict | None, list[str]]:
+) -> tuple[dict | None, list[str], dict | None]:
     """Check both stdout and stderr, redacting sensitive content.
 
-    Returns (updated_tool_result, matched_labels) or (None, []) when nothing
-    was detected.
+    Returns (updated_tool_result, matched_labels, scf_metadata) or
+    (None, [], None) when nothing was detected.
     """
     tool_result = hook_input.get("tool_result", {})
     if not isinstance(tool_result, dict):
-        return None, []
+        return None, [], None
 
     stdout = tool_result.get("stdout", "")
     stderr = tool_result.get("stderr", "")
 
     all_labels: list[str] = []
+    first_scf: dict | None = None
     updated = dict(tool_result)
     changed = False
 
     if stdout:
-        redacted_stdout, labels = redact_text(stdout, compiled_rules)
+        redacted_stdout, labels, scf = redact_text(stdout, compiled_rules)
         if labels:
             updated["stdout"] = redacted_stdout
             all_labels.extend(labels)
             changed = True
+            if first_scf is None:
+                first_scf = scf
 
     if stderr:
-        redacted_stderr, labels = redact_text(stderr, compiled_rules)
+        redacted_stderr, labels, scf = redact_text(stderr, compiled_rules)
         if labels:
             updated["stderr"] = redacted_stderr
             all_labels.extend(labels)
             changed = True
+            if first_scf is None:
+                first_scf = scf
 
     if changed:
-        return updated, all_labels
-    return None, []
+        return updated, all_labels, first_scf
+    return None, [], None
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +181,7 @@ def main():
         sys.exit(0)
 
     compiled_rules = _compile_patterns(config["rules"])
-    updated_result, matched_labels = evaluate_output(compiled_rules, hook_input)
+    updated_result, matched_labels, scf_metadata = evaluate_output(compiled_rules, hook_input)
 
     if updated_result is None:
         # Nothing detected — pass through unchanged
@@ -188,6 +198,7 @@ def main():
             matched=matched_labels,
             command=resolve_field(hook_input, "tool_input.command"),
             session_id=hook_input.get("session_id", ""),
+            scf=scf_metadata,
         )
     except Exception:
         pass

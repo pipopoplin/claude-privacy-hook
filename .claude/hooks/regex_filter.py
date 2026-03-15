@@ -92,12 +92,16 @@ def evaluate_rules(
         if matches:
             reason += "\nMatched:\n" + "\n".join(f"  - {m}" for m in matches)
 
-        return {
+        result = {
             "decision": action,
             "reason": reason,
             "rule_name": rule.get("name", "unknown"),
             "matched_labels": matches,
         }
+        scf = rule.get("scf")
+        if scf:
+            result["scf"] = scf
+        return result
 
     return None
 
@@ -172,6 +176,7 @@ def main():
             matched=result.get("matched_labels", []),
             command=command,
             session_id=hook_input.get("session_id", ""),
+            scf=result.get("scf"),
         )
     except Exception:
         pass  # Audit logging must never block the filter

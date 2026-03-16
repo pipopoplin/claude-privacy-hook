@@ -142,15 +142,15 @@ def test_bash_rules_have_scf_controls(t: TestRunner):
 # =====================================================================
 
 def test_bash_rule_count(t: TestRunner):
-    """Bash rules count matches expected (18 rules)."""
+    """Bash rules count matches expected (6 rules)."""
     rules = _load_rules(BASH_RULES)
-    t.check("Bash: 18 rules", len(rules), 18)
+    t.check("Bash: 6 rules", len(rules), 6)
 
 
 def test_write_rule_count(t: TestRunner):
-    """Write rules count matches expected (8 rules)."""
+    """Write rules count matches expected (3 rules)."""
     rules = _load_rules(WRITE_RULES)
-    t.check("Write: 8 rules", len(rules), 8)
+    t.check("Write: 3 rules", len(rules), 3)
 
 
 def test_read_rule_count(t: TestRunner):
@@ -160,9 +160,9 @@ def test_read_rule_count(t: TestRunner):
 
 
 def test_sanitizer_rule_count(t: TestRunner):
-    """Sanitizer rules count matches expected (7 rules)."""
+    """Sanitizer rules count matches expected (3 rules)."""
     rules = _load_rules(SANITIZER_RULES)
-    t.check("Sanitizer: 7 rules", len(rules), 7)
+    t.check("Sanitizer: 3 rules", len(rules), 3)
 
 
 # =====================================================================

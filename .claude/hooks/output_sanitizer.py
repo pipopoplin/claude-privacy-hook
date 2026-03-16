@@ -97,25 +97,13 @@ def redact_text(text: str, compiled_rules: list[dict]) -> tuple[str, list[str], 
         if first_scf is None:
             first_scf = rule.get("scf")
 
-        anon_mode = rule.get("anonymization_mode", "redact")
+        # Free tier: only "redact" mode (pseudonymize/hash require Pro)
+        anon_mode = "redact"
 
         for regex, label in matches:
             all_labels.append(label)
-
-            if anon_mode == "pseudonymize":
-                def _pseudo_repl(m):
-                    token = hashlib.sha256(m.group(0).encode()).hexdigest()[:8]
-                    return f"[PII-{token}]"
-                text = regex.sub(_pseudo_repl, text)
-                normalized = regex.sub(_pseudo_repl, normalized)
-            elif anon_mode == "hash":
-                def _hash_repl(m):
-                    return "sha256:" + hashlib.sha256(m.group(0).encode()).hexdigest()
-                text = regex.sub(_hash_repl, text)
-                normalized = regex.sub(_hash_repl, normalized)
-            else:  # "redact" (default)
-                text = regex.sub("[REDACTED]", text)
-                normalized = regex.sub("[REDACTED]", normalized)
+            text = regex.sub("[REDACTED]", text)
+            normalized = regex.sub("[REDACTED]", normalized)
 
     return text, all_labels, first_scf
 

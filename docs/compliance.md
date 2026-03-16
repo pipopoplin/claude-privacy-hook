@@ -127,7 +127,7 @@ Relationship types follow NIST IR 8477 Set Theory Relationship Mapping (STRM). S
 | 39 | Non-Bash tool coverage | Config | 🔐🛡️ | OPS | OPS-05 | Intersects With | 7 | GDPR Art.32 | 🟡 Medium | | x |
 | 40 | Semantic intent scoring | L2 NLP | 🔐🛡️ | THR | THR-10 | Intersects With | 6 | OWASP LLM01 | 🟡 Medium | | x |
 
-The **Basic Tier** column marks filters included in the basic (MIT) tier with an **x**. Filters without a mark require [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro).
+The **Basic Tier** column marks filters included in the basic (MIT) tier. The **Pro Tier** column marks filters included in [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro). All 40 filters are available in Pro; Basic includes 8 core filters.
 
 ## Architectural Controls (16 controls)
 

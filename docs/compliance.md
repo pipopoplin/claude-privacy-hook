@@ -84,50 +84,50 @@ Controls, rules, and compliance documentation are reviewed on the following sche
 
 Relationship types follow NIST IR 8477 Set Theory Relationship Mapping (STRM). Strength is rated 1–10 based on how directly our implementation addresses the SCF control objective.
 
-| # | Filter | Layer | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Value | Free |
-|---|--------|-------|-------|------------|-------------|------|:---:|------------|-------|:----:|
-| 1 | Anthropic / OpenAI API keys | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
-| 2 | AWS / GCP / Azure credentials | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
-| 3 | GitHub / GitLab tokens | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
-| 4 | Private keys / PEM certs | L1 regex | 🔐 | CRY | CRY-03 | Intersects With | 7 | — | 🔴 Critical |  f  |
-| 5 | Slack / webhook tokens | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
-| 6 | Hardcoded passwords | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |  f  |
-| 7 | Untrusted network calls | L1 regex | 🔐 | NET | NET-01 | Subset Of | 8 | — | 🔴 Critical |   |
-| 8 | Trusted endpoint allowlist | L1 regex | 🔐 | NET | NET-01 | Subset Of | 8 | — | 🔴 Critical |   |
-| 9 | Person names (NER) | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
-| 10 | Email addresses | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
-| 11 | SSN / National ID | L1 regex | 🛡️ | PRI | PRI-01 | Subset Of | 9 | GDPR Art.9 | 🔴 Critical |  f  |
-| 12 | Credit card numbers | L1 regex | 🛡️ | DCH | DCH-02 | Intersects With | 7 | PCI-DSS Req.3 | 🔴 Critical |  f  |
-| 13 | Phone numbers | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
-| 14 | IP addresses | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical |   |
-| 15 | ORG / GPE / NORP entities | L2 NLP | 🛡️ | PRI | PRI-02 | Intersects With | 6 | GDPR Art.4 | 🟠 High |   |
-| 16 | Expanded vendor credentials | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical |   |
-| 17 | Employee ID / HR numbers | L1 regex | 🛡️ | HRS | HRS-01 | Intersects With | 6 | GDPR Art.88 | 🔴 Critical |   |
-| 18 | Medical / health data | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 / HIPAA | 🔴 Critical |   |
-| 19 | IBAN / bank account numbers | L1 regex | 🛡️ | DCH | DCH-02 | Intersects With | 7 | PSD2 / GDPR Art.4 | 🔴 Critical |  f  |
-| 20 | Passport / driver licence | L1 regex | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🔴 Critical |   |
-| 21 | Base64-encoded payloads | L1 regex | 🔐 | THR | THR-07 | Intersects With | 7 | — | 🔴 Critical |   |
-| 22 | Prompt injection phrases | L1/L2 | 🔐 | THR | THR-10 | Intersects With | 7 | OWASP LLM01 | 🔴 Critical |   |
-| 23 | Sensitive file access | L1 regex | 🔐🛡️ | IAC | IAC-20 | Intersects With | 7 | GDPR Art.32 | 🔴 Critical |   |
-| 24 | DNS exfiltration | L1 regex | 🔐 | NET | NET-01 | Subset Of | 7 | — | 🟠 High |   |
-| 25 | Path traversal | L1 regex | 🔐 | THR | THR-10 | Intersects With | 6 | OWASP A05 | 🟠 High |   |
-| 26 | Database connection strings | L1 regex | 🔐🛡️ | DCH | DCH-05 | Intersects With | 7 | GDPR Art.32 | 🔴 Critical |   |
-| 27 | Internal hostnames / IPs | L1 regex | 🛡️ | NET | NET-01 | Subset Of | 7 | GDPR Art.32 | 🟠 High |   |
-| 28 | Customer / contract IDs | L1 regex | 🛡️ | PRI | PRI-02 | Intersects With | 6 | GDPR Art.4 | 🟠 High |   |
-| 29 | Biometric data references | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🟠 High |   |
-| 30 | Ethnic / religious / political | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🟠 High |   |
-| 31 | Unicode / homoglyph bypass | L1 | 🔐 | THR | THR-07 | Intersects With | 8 | — | 🟠 High |   |
-| 32 | High-entropy secret detection | L2 NLP | 🔐 | IAC | IAC-01 | Intersects With | 6 | — | 🟠 High |   |
-| 33 | Shell obfuscation / eval | L1 regex | 🔐 | OPS | OPS-05 | Intersects With | 7 | — | 🟠 High |   |
-| 34 | Pipe-chain exfiltration | L1 regex | 🔐 | NET | NET-01 | Subset Of | 7 | — | 🟠 High |   |
-| 35 | Output sanitization | Post-hook | 🛡️ | DCH | DCH-05 | Intersects With | 7 | GDPR Art.32 | 🟡 Medium |   |
-| 36 | ask / human oversight | Meta | ⚖️ | GOV | GOV-04 | Intersects With | 6 | GDPR Art.22 | 🟡 Medium |   |
-| 37 | Audit log of blocked events | Meta | ⚖️ | IRO | IRO-01 | Subset Of | 8 | GDPR Art.5(2) | 🟠 High |   |
-| 38 | Rate limiting / anomaly | Meta | 🔐 | MON | MON-16 | Intersects With | 6 | — | 🟡 Medium |   |
-| 39 | Non-Bash tool coverage | Config | 🔐🛡️ | OPS | OPS-05 | Intersects With | 7 | GDPR Art.32 | 🟡 Medium |   |
-| 40 | Semantic intent scoring | L2 NLP | 🔐🛡️ | THR | THR-10 | Intersects With | 6 | OWASP LLM01 | 🟡 Medium |   |
+| # | Filter | Layer | Scope | SCF Domain | SCF Control | STRM | Str | Regulation | Value | Basic Tier | Pro Tier |
+|---|--------|-------|-------|------------|-------------|------|:---:|------------|-------|:----------:|:--------:|
+| 1 | Anthropic / OpenAI API keys | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical | x | x |
+| 2 | AWS / GCP / Azure credentials | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical | x | x |
+| 3 | GitHub / GitLab tokens | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical | x | x |
+| 4 | Private keys / PEM certs | L1 regex | 🔐 | CRY | CRY-03 | Intersects With | 7 | — | 🔴 Critical | x | x |
+| 5 | Slack / webhook tokens | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical | x | x |
+| 6 | Hardcoded passwords | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical | x | x |
+| 7 | Untrusted network calls | L1 regex | 🔐 | NET | NET-01 | Subset Of | 8 | — | 🔴 Critical | | x |
+| 8 | Trusted endpoint allowlist | L1 regex | 🔐 | NET | NET-01 | Subset Of | 8 | — | 🔴 Critical | | x |
+| 9 | Person names (NER) | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical | | x |
+| 10 | Email addresses | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical | | x |
+| 11 | SSN / National ID | L1 regex | 🛡️ | PRI | PRI-01 | Subset Of | 9 | GDPR Art.9 | 🔴 Critical | x | x |
+| 12 | Credit card numbers | L1 regex | 🛡️ | DCH | DCH-02 | Intersects With | 7 | PCI-DSS Req.3 | 🔴 Critical | x | x |
+| 13 | Phone numbers | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical | | x |
+| 14 | IP addresses | L2 NLP | 🛡️ | PRI | PRI-01 | Subset Of | 8 | GDPR Art.4 | 🔴 Critical | | x |
+| 15 | ORG / GPE / NORP entities | L2 NLP | 🛡️ | PRI | PRI-02 | Intersects With | 6 | GDPR Art.4 | 🟠 High | | x |
+| 16 | Expanded vendor credentials | L1 regex | 🔐 | IAC | IAC-01 | Subset Of | 9 | — | 🔴 Critical | | x |
+| 17 | Employee ID / HR numbers | L1 regex | 🛡️ | HRS | HRS-01 | Intersects With | 6 | GDPR Art.88 | 🔴 Critical | | x |
+| 18 | Medical / health data | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 / HIPAA | 🔴 Critical | | x |
+| 19 | IBAN / bank account numbers | L1 regex | 🛡️ | DCH | DCH-02 | Intersects With | 7 | PSD2 / GDPR Art.4 | 🔴 Critical | x | x |
+| 20 | Passport / driver licence | L1 regex | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🔴 Critical | | x |
+| 21 | Base64-encoded payloads | L1 regex | 🔐 | THR | THR-07 | Intersects With | 7 | — | 🔴 Critical | | x |
+| 22 | Prompt injection phrases | L1/L2 | 🔐 | THR | THR-10 | Intersects With | 7 | OWASP LLM01 | 🔴 Critical | | x |
+| 23 | Sensitive file access | L1 regex | 🔐🛡️ | IAC | IAC-20 | Intersects With | 7 | GDPR Art.32 | 🔴 Critical | | x |
+| 24 | DNS exfiltration | L1 regex | 🔐 | NET | NET-01 | Subset Of | 7 | — | 🟠 High | | x |
+| 25 | Path traversal | L1 regex | 🔐 | THR | THR-10 | Intersects With | 6 | OWASP A05 | 🟠 High | | x |
+| 26 | Database connection strings | L1 regex | 🔐🛡️ | DCH | DCH-05 | Intersects With | 7 | GDPR Art.32 | 🔴 Critical | | x |
+| 27 | Internal hostnames / IPs | L1 regex | 🛡️ | NET | NET-01 | Subset Of | 7 | GDPR Art.32 | 🟠 High | | x |
+| 28 | Customer / contract IDs | L1 regex | 🛡️ | PRI | PRI-02 | Intersects With | 6 | GDPR Art.4 | 🟠 High | | x |
+| 29 | Biometric data references | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🟠 High | | x |
+| 30 | Ethnic / religious / political | L2 NLP | 🛡️ | PRI | PRI-03 | Intersects With | 7 | GDPR Art.9 | 🟠 High | | x |
+| 31 | Unicode / homoglyph bypass | L1 | 🔐 | THR | THR-07 | Intersects With | 8 | — | 🟠 High | | x |
+| 32 | High-entropy secret detection | L2 NLP | 🔐 | IAC | IAC-01 | Intersects With | 6 | — | 🟠 High | | x |
+| 33 | Shell obfuscation / eval | L1 regex | 🔐 | OPS | OPS-05 | Intersects With | 7 | — | 🟠 High | | x |
+| 34 | Pipe-chain exfiltration | L1 regex | 🔐 | NET | NET-01 | Subset Of | 7 | — | 🟠 High | | x |
+| 35 | Output sanitization | Post-hook | 🛡️ | DCH | DCH-05 | Intersects With | 7 | GDPR Art.32 | 🟡 Medium | | x |
+| 36 | ask / human oversight | Meta | ⚖️ | GOV | GOV-04 | Intersects With | 6 | GDPR Art.22 | 🟡 Medium | | x |
+| 37 | Audit log of blocked events | Meta | ⚖️ | IRO | IRO-01 | Subset Of | 8 | GDPR Art.5(2) | 🟠 High | | x |
+| 38 | Rate limiting / anomaly | Meta | 🔐 | MON | MON-16 | Intersects With | 6 | — | 🟡 Medium | | x |
+| 39 | Non-Bash tool coverage | Config | 🔐🛡️ | OPS | OPS-05 | Intersects With | 7 | GDPR Art.32 | 🟡 Medium | | x |
+| 40 | Semantic intent scoring | L2 NLP | 🔐🛡️ | THR | THR-10 | Intersects With | 6 | OWASP LLM01 | 🟡 Medium | | x |
 
-The **Free** column marks filters included in the free (MIT) tier. Filters without a mark require [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro).
+The **Basic Tier** column marks filters included in the basic (MIT) tier with an **x**. Filters without a mark require [claude-privacy-hook-pro](https://github.com/your-org/claude-privacy-hook-pro).
 
 ## Architectural Controls (16 controls)
 

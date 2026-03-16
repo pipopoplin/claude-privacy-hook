@@ -104,18 +104,16 @@ def main():
     if not session_id:
         sys.exit(0)  # Cannot rate-limit without a session ID
 
-    # Resolve audit log path
-    audit_log_name = config.get("audit_log", "audit.log")
+    # Resolve audit log path (reads from same location as audit_logger writes)
     log_path = os.environ.get(
         "HOOK_AUDIT_LOG",
-        os.path.join(hooks_dir, audit_log_name),
+        os.path.join(hooks_dir, "audit.log"),
     )
 
-    window_seconds = config.get("window_seconds", 300)
-    thresholds = config.get("thresholds", {})
-    block_threshold = thresholds.get("block", 10)
-    warn_threshold = thresholds.get("warn", 5)
-    cooldown_seconds = config.get("cooldown_seconds", 60)
+    # Free tier: fixed thresholds (configurable thresholds require Pro)
+    window_seconds = 300
+    block_threshold = 10
+    warn_threshold = 5
 
     try:
         violation_count = count_violations(log_path, session_id, window_seconds)

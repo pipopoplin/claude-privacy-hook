@@ -20,4 +20,4 @@ Pro also includes a custom plugin API for writing your own detection backends.
 
 ## Free Tier
 
-The free tier provides comprehensive regex-based detection with 18 rules and ~180 patterns — no plugins or external dependencies needed. See [architecture.md](architecture.md) for details on the regex filter, output sanitizer, and rate limiter.
+The free tier provides regex-based detection with 6 Bash rules, 3 Write rules, and 3 output sanitizer rules (~80 patterns total) — no plugins or external dependencies needed. See [architecture.md](../../docs/architecture.md) for details on the regex filter, output sanitizer, and rate limiter.

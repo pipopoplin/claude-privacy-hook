@@ -1,11 +1,11 @@
 # Tests
 
-Test suites for all three security hook layers plus the override system and shared test infrastructure.
+Test suites for all security hook layers, compliance tools, and shared test infrastructure.
 
 ## Quick Start
 
 ```bash
-# Run everything (979 tests)
+# Run everything (1,390 tests across 9 suites)
 python3 tests/run_all.py
 ```
 
@@ -14,10 +14,14 @@ python3 tests/run_all.py
 | Suite | File | Cases | What it tests |
 |-------|------|-------|---------------|
 | **Regex Filter** | `test_regex_filter.py` | 518 | Pattern matching for Bash, Write/Edit, and Read rules |
-| **Output Sanitizer** | `test_output_sanitizer.py` | 179 | API keys (20 patterns), SSNs, credit cards, emails, private keys, DB connections, internal IPs, stderr, config/input edge cases, audit logging, Unicode |
-| **Rate Limiter** | `test_rate_limiter.py` | 60 | Threshold boundaries, action filtering, session isolation, time window, config variants, malformed input, output format |
-| **Overrides** | `test_overrides.py` | 74 | Resolver unit tests, integration allows, non-overridable rules, edge cases, audit logging, CLI tool, performance |
-| **Conftest Infrastructure** | `test_conftest.py` | 148 | Path constants, parse_decision, detected, run_hook_raw, run_hook, TestRunner, integration round-trips, edge cases |
+| **Output Sanitizer** | `test_output_sanitizer.py` | 186 | Redaction rules + anonymization modes (pseudonymize, hash, redact) |
+| **Rate Limiter** | `test_rate_limiter.py` | 60 | Threshold boundaries, session isolation, time window, config edge cases |
+| **Overrides** | `test_overrides.py` | 94 | Resolver, integration, CLI, performance, risk scoring, audit trail |
+| **Conftest Infrastructure** | `test_conftest.py` | 148 | Path constants, helpers, TestRunner, integration round-trips |
+| **Audit Logger** | `test_audit_logger.py` | 55 | Log rotation, data minimization, SCF metadata, override fields |
+| **Evidence Collector** | `test_evidence_collector.py` | 47 | SCF grouping, cross-session analysis, formatting, overrides |
+| **Breach Report** | `test_breach_report.py` | 55 | Breach detection, severity, session filter, 3 output formats |
+| **Config Validation** | `test_config_validation.py` | 109 | SCF tags, data_classification, rule counts, ordering |
 
 ## Shared Infrastructure
 
@@ -54,20 +58,21 @@ Tests the regex filter (`regex_filter.py`) against all three rule sets with exte
 
 Tests the PostToolUse output sanitizer (`output_sanitizer.py`) with edge-value coverage for all 7 rules:
 
-- **API key redaction** (31) — Anthropic (standard, mid-output), OpenAI (sk-proj-, sk- 20-char), GitHub (PAT, OAuth), Slack (xoxb/xoxa/xoxp), Stripe (live/test/restricted rk_live/rk_test), Google (API AIza 35-char, OAuth ya29.), SendGrid, Twilio (SK/AC 32-hex), JWT (standard, Bearer header), GitLab PAT, npm, PyPI (60+ chars), Hugging Face, DigitalOcean, AWS (access key assignment, secret key, AKIA standalone), boundary-length edge (20 chars exact, 19 below min), two keys in one line
-- **SSN redaction** (10) — standard NNN-NN-NNNN, assignment (= and :), with spaces, mid-text, quoted, boundary zeros, all nines, FP date format, FP version string
-- **Credit card redaction** (19) — Visa (spaces/dashes/none, 4000 prefix, boundary 4999), Mastercard (5100/5200/5300/5400/5500, spaces/dashes/none), Amex (34xx/37xx, spaces/dashes/none), Discover (6011/65xx, none), FP non-matching prefix, FP 15-digit
-- **Email redaction** (12) — standard, subdomain, dots/plus/percent/hyphen/underscore in local, numbers, short TLD, two emails, FP shell `${array[@]}`, FP git ref `HEAD@{1}`
-- **Private key redaction** (11) — RSA/EC/DSA/OPENSSH/generic headers, RSA/EC/generic footers, full block, FP public key, FP certificate
-- **DB connection string redaction** (25) — URI with credentials (postgres/postgresql/mysql/mariadb/mongodb/mongodb+srv/redis/amqp/rabbitmq/cockroachdb/couchdb/mssql), env var assignments (DATABASE_URL/MONGO_URI/MONGODB_URI/REDIS_URL/AMQP_URL), ADO.NET, ODBC, JDBC (mysql/postgresql/sqlserver/oracle), Data Source, FP plain URL, FP db name
-- **Internal IP redaction** (23) — RFC1918 Class A (10.0.0.1, :8080, max 255, mid-range), Class B (172.16 lower, 172.31 upper, 172.20 mid), Class C (192.168.0/1/255), link-local (169.254.0.1, AWS metadata), IPv6 ULA (fd00/fdab), IPv6 link-local (fe80::), two IPs in one line, FP public (8.8.8.8, 1.1.1.1), FP out-of-range (172.32, 172.15, 11.x), FP localhost
-- **Stderr redaction** (7) — API key, SSN, email, internal IP, DB URI, private key in stderr; both stdout+stderr simultaneously
-- **Pass-through** (17) — normal text, JSON, build log, git log, empty, npm output, test results, file listing, public IP, version numbers, hex colors, MAC address, URL without credentials, SQL without secrets, Docker digest, safe stderr, large output (500 lines)
-- **Redaction quality** (3) — [REDACTED] marker present, surrounding text preserved, multiple rules all redact in single output
-- **Config edge cases** (10) — disabled rule, action=allow, match=all (partial/full), empty rules, invalid regex skipped, string patterns, missing rules key, no patterns key
-- **Input edge cases** (6) — missing tool_result, non-dict tool_result, empty stdout+stderr, malformed JSON, no config arg, nonexistent config
-- **Audit logging** (2) — redaction event recorded, no log for safe output
-- **Unicode / case insensitivity** (3) — case-insensitive matching (upper/lower), Unicode homoglyph normalization
+- **API key redaction** (31) — Anthropic, OpenAI, GitHub, Slack, Stripe, Google, SendGrid, Twilio, JWT, GitLab, npm, PyPI, Hugging Face, DigitalOcean, AWS, boundary-length edges
+- **SSN redaction** (10) — standard, assignment, spaces, quoted, boundary, false positives
+- **Credit card redaction** (19) — Visa, Mastercard, Amex, Discover, various formats, false positives
+- **Email redaction** (12) — standard, subdomain, special chars, false positives
+- **Private key redaction** (11) — RSA/EC/DSA/OPENSSH headers/footers, false positives
+- **DB connection string redaction** (25) — All URI schemes, env vars, JDBC, ADO.NET, false positives
+- **Internal IP redaction** (23) — RFC1918, link-local, IPv6, false positives
+- **Stderr redaction** (7) — All rule types in stderr, combined stdout+stderr
+- **Pass-through** (17) — Safe output preserved unchanged
+- **Redaction quality** (3) — Markers, surrounding text, multi-rule
+- **Config edge cases** (10) — Disabled, allow, match=all, empty, invalid regex, string patterns
+- **Input edge cases** (6) — Missing/bad tool_result, malformed JSON, missing config
+- **Audit logging** (2) — Redaction logged, safe output not logged
+- **Unicode / case insensitivity** (3) — Case-insensitive, homoglyph normalization
+- **Anonymization modes** (7) — Pseudonymize (`[PII-{hash}]`), hash (`sha256:{full}`), default redact (`[REDACTED]`), deterministic tokens, full SHA-256, unknown mode fallback, per-rule config
 
 ### test_rate_limiter.py
 
@@ -95,6 +100,8 @@ Tests the two-layer override system:
 - **Audit logging** (4) — override_allow recorded with override_name and override_source, non-overridden commands have no override_allow
 - **CLI tool** (17) — add/list/remove cycle, add with --expires, duplicate name auto-increment, remove nonexistent, validate (valid/invalid-rule/non-overridable/invalid-regex/expired-warning), test (overridden/not-overridden/non-overridable)
 - **Performance** (2) — 50 overrides match and no-match complete under 500ms
+- **Risk scoring** (13) — restricted+critical→10, public+low→2, default values, project scope +1, no expiry +1, long expiry +1, clamping 1-10, invalid expiry, level thresholds (critical/high/medium/low)
+- **CLI risk scoring and audit trail** (4) — add shows risk score, high-risk warning, add logs override_add, remove logs override_remove
 
 ### test_conftest.py
 
@@ -135,7 +142,54 @@ READ_CASES = [
 ]
 ```
 
-For standalone tests (overrides, rate limiter), add a new `test_*()` function that returns `bool` and register it in the `tests` list in `main()`.
+For standalone tests (overrides, rate limiter, audit logger, etc.), add a new `test_*()` function and register it in `main()`.
+
+### test_audit_logger.py
+
+Tests the audit logger module directly (unit tests, not subprocess):
+
+- **Log rotation** (8) — disabled (zero max_bytes, zero backup_count), file too small, missing file, triggers at threshold, shifts backups (.1→.2), deletes oldest, invalid env vars
+- **Basic fields** (2) — required fields present, matched_patterns capped at 10
+- **Minimize mode** (3) — command_preview omitted, label text stripped, normal mode includes preview
+- **SCF metadata** (3) — full metadata included, omitted when None, partial (only non-empty fields)
+- **Override fields** (2) — included when provided, omitted when empty
+- **Redact preview** (3) — secrets masked, long commands truncated, short commands unchanged
+- **Rotation integration** (1) — log_event triggers rotation before writing
+
+### test_evidence_collector.py
+
+Tests the compliance evidence collector:
+
+- **load_audit_log** (4) — empty file, nonexistent file, since filter, malformed JSON skipped
+- **group_by_scf_control** (4) — single control, multiple controls per entry, unmapped entries, action counts
+- **cross_session_analysis** (8) — hot rule (3+ sessions), cold rule, same-session dedup, custom threshold, action tracking, time window, empty entries, missing rule_name
+- **format_cross_session_text** (2) — hot rules table, no hot rules message
+- **format_cross_session_json** (1) — correct structure with sessions/actions/is_hot
+- **group_overrides** (2) — override_allow grouped, non-override events ignored
+- **format_text/json report** (3) — report header, domain filter, JSON structure
+
+### test_breach_report.py
+
+Tests the breach notification report generator:
+
+- **load_audit_log** (3) — nonexistent file, since filter, bad JSON skipped
+- **detect_breaches — threshold** (8) — above/below threshold, custom threshold, session filter, multiple sessions, sorting, action counts, no session_id
+- **detect_breaches — data** (3) — data types collection, SCF metadata, time window
+- **detect_breaches — severity** (3) — critical, high, medium based on risk_levels
+- **_consequences_text** (3) — critical+GDPR, PCI, default
+- **format_text** (2) — no breaches, 7-section report with GDPR footer
+- **format_markdown** (2) — no breaches, heading structure with code blocks
+- **format_json** (2) — full structure, empty report
+
+### test_config_validation.py
+
+Validates JSON config file metadata:
+
+- **data_classification** (4 groups) — all Bash (18), Write (8), Read (1), and Sanitizer (7) rules have valid classification
+- **SCF metadata** (4 groups) — all rules have scf.domain and scf.risk_level
+- **SCF controls** (1) — all Bash rules have non-empty scf.controls list
+- **Rule counts** (4) — Bash=18, Write=8, Read=1, Sanitizer=7
+- **Rule ordering** (1) — no deny rules after allow in Bash rules
 
 ## Dependencies
 

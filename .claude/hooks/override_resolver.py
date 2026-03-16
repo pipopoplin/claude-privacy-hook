@@ -1,11 +1,11 @@
 """Override resolver for the free-tier override system.
 
-Loads user and project override files, checks whether a triggered rule
+Loads project override files (max 3), checks whether a triggered rule
 should be allowed based on override patterns, expiry dates, and the
 rule's overridable flag.
 
-Override priority: user > project (first match wins).
-Overrides are scoped to free-tier rules only. Pro rules require a paid license.
+Free tier: project-level overrides only, capped at 3.
+User-level overrides and unlimited overrides require Pro tier.
 """
 
 import json
@@ -16,43 +16,22 @@ from datetime import date
 # Free-tier rule whitelist — overrides are only allowed for these rules.
 # Pro tier extends this set. Keep in sync with free-tier config files.
 FREE_TIER_RULES = frozenset({
-    # filter_rules.json (Bash)
+    # filter_rules.json (Bash) -- 6 rules
     "block_sensitive_data",
-    "block_passport_licence",
-    "block_base64_payloads",
     "block_prompt_injection",
     "block_shell_obfuscation",
-    "block_path_traversal",
-    "block_dns_exfiltration",
-    "block_pipe_chain_exfiltration",
-    "block_ssn_national_id",
-    "block_credit_card_numbers",
-    "block_employee_hr_ids",
-    "block_iban_bank_accounts",
     "block_sensitive_file_access",
-    "block_database_connection_strings",
-    "block_internal_network_addresses",
-    "block_customer_contract_ids",
     "allow_trusted_endpoints",
     "block_untrusted_network",
-    # filter_rules_write.json (Write/Edit)
+    # filter_rules_write.json (Write/Edit) -- 3 rules
     "block_api_keys_in_content",
-    "block_private_keys_in_content",
     "block_hardcoded_passwords_in_content",
-    "block_database_connection_strings_in_content",
-    "block_ssn_in_content",
-    "block_credit_cards_in_content",
-    "block_internal_ips_in_content",
     "block_api_keys_in_edit",
-    # filter_rules_read.json (Read)
+    # filter_rules_read.json (Read) -- 1 rule
     "block_sensitive_file_read",
-    # output_sanitizer_rules.json
+    # output_sanitizer_rules.json -- 3 rules
     "redact_api_keys",
-    "redact_ssn",
-    "redact_credit_cards",
     "redact_email_addresses",
-    "redact_private_keys",
-    "redact_database_connection_strings",
     "redact_internal_ip_addresses",
 })
 
@@ -79,18 +58,15 @@ def _load_override_file(path: str, source: str) -> list[dict]:
 
 
 def load_overrides(hooks_dir: str) -> list[dict]:
-    """Load user overrides first, then project overrides. User wins."""
+    """Load project overrides only (free tier: max 3, no user overrides)."""
     overrides: list[dict] = []
 
-    # User overrides (highest priority)
-    user_path = os.path.join(
-        os.path.expanduser("~"), ".claude", "hooks", "config_overrides.json"
-    )
-    overrides.extend(_load_override_file(user_path, source="user"))
-
-    # Project overrides
+    # Free tier: project-level overrides only (user overrides require Pro)
     project_path = os.path.join(hooks_dir, "config_overrides.json")
     overrides.extend(_load_override_file(project_path, source="project"))
+
+    # Free tier: cap at 3 overrides (unlimited requires Pro)
+    overrides = overrides[:3]
 
     return overrides
 

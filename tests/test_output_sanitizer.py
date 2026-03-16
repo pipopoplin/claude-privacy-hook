@@ -2,8 +2,8 @@
 """Test the output sanitizer PostToolUse hook.
 
 Verifies that sensitive data in command stdout/stderr is redacted and
-that safe output passes through unchanged.  Covers all 7 rules in
-output_sanitizer_rules.json with edge-value coverage for every pattern.
+that safe output passes through unchanged.  Covers the 3 free-tier rules
+(API keys, emails, internal IPs) in output_sanitizer_rules.json.
 """
 
 import json
@@ -223,124 +223,6 @@ API_KEY_CASES = [
 
 
 # =====================================================================
-# Test cases — Rule 2: redact_ssn
-# =====================================================================
-
-SSN_CASES = [
-    ("Redact: SSN standard format",
-     "SSN: 123-45-6789", "",
-     True, lambda r: "123-45-6789" not in r["stdout"]),
-    ("Redact: SSN assignment with =",
-     "SSN=123-45-6789", "",
-     True, lambda r: "123-45-6789" not in r["stdout"]),
-    ("Redact: SSN assignment with colon",
-     "SSN: 123456789", "",
-     True, lambda r: "123456789" not in r["stdout"]),
-    ("Redact: SSN with spaces",
-     "SSN: 123 45 6789", "",
-     True, lambda r: "123 45 6789" not in r["stdout"]),
-    ("Redact: SSN dashed in middle of text",
-     "The value 999-88-7777 was found", "",
-     True, lambda r: "999-88-7777" not in r["stdout"]),
-    ("Redact: SSN quoted in assignment",
-     "SSN='987-65-4321'", "",
-     True, lambda r: "987-65-4321" not in r["stdout"]),
-
-    # Edge: boundary digits
-    ("Redact: SSN with all zeros except boundary",
-     "Found: 000-00-0001", "",
-     True, lambda r: "000-00-0001" not in r["stdout"]),
-    ("Redact: SSN with all nines",
-     "Found: 999-99-9999", "",
-     True, lambda r: "999-99-9999" not in r["stdout"]),
-
-    # False positives
-    ("FP SSN: date format MM-DD-YYYY (12 digits total, not 9)",
-     "Date: 2024-01-15 is scheduled", "",
-     False, None),
-    ("FP SSN: phone-like NNN-NN-NNNN with context",
-     "version 1.2.3 in release notes", "",
-     False, None),
-]
-
-
-# =====================================================================
-# Test cases — Rule 3: redact_credit_cards
-# =====================================================================
-
-CREDIT_CARD_CASES = [
-    # Visa
-    ("Redact: Visa card with spaces",
-     "card: 4111 1111 1111 1111", "",
-     True, lambda r: "4111" not in r["stdout"]),
-    ("Redact: Visa card with dashes",
-     "card: 4111-1111-1111-1111", "",
-     True, lambda r: "4111" not in r["stdout"]),
-    ("Redact: Visa card no separators",
-     "card: 4111111111111111", "",
-     True, lambda r: "4111111111111111" not in r["stdout"]),
-    ("Redact: Visa starting with 4000",
-     "card: 4000 1234 5678 9010", "",
-     True, lambda r: "4000" not in r["stdout"]),
-
-    # Mastercard
-    ("Redact: Mastercard 5100",
-     "card: 5100 0000 0000 0000", "",
-     True, lambda r: "5100" not in r["stdout"]),
-    ("Redact: Mastercard 5500 with spaces",
-     "card: 5500 0000 0000 0004", "",
-     True, lambda r: "5500" not in r["stdout"]),
-    ("Redact: Mastercard 5200 no separators",
-     "card: 5200123456789012", "",
-     True, lambda r: "5200123456789012" not in r["stdout"]),
-    ("Redact: Mastercard 5300 with dashes",
-     "cc: 5300-0000-0000-0000", "",
-     True, lambda r: "5300" not in r["stdout"]),
-    ("Redact: Mastercard 5400",
-     "cc: 5400 1234 5678 9012", "",
-     True, lambda r: "5400" not in r["stdout"]),
-
-    # Amex
-    ("Redact: Amex 34xx (spaces)",
-     "amex: 3400 123456 12345", "",
-     True, lambda r: "3400" not in r["stdout"]),
-    ("Redact: Amex 37xx (spaces)",
-     "amex: 3700 123456 12345", "",
-     True, lambda r: "3700" not in r["stdout"]),
-    ("Redact: Amex no separators",
-     "amex: 340012345612345", "",
-     True, lambda r: "340012345612345" not in r["stdout"]),
-    ("Redact: Amex with dashes",
-     "amex: 3700-123456-12345", "",
-     True, lambda r: "3700" not in r["stdout"]),
-
-    # Discover
-    ("Redact: Discover 6011",
-     "card: 6011 1234 5678 9012", "",
-     True, lambda r: "6011" not in r["stdout"]),
-    ("Redact: Discover 65xx",
-     "card: 6500 1234 5678 9012", "",
-     True, lambda r: "6500" not in r["stdout"]),
-    ("Redact: Discover no separators",
-     "card: 6011123456789012", "",
-     True, lambda r: "6011123456789012" not in r["stdout"]),
-
-    # Edge: boundary patterns
-    ("Redact: Visa boundary — starts with 4, 16 digits",
-     "num: 4999999999999999", "",
-     True, lambda r: "4999999999999999" not in r["stdout"]),
-
-    # False positives
-    ("FP CC: 16-digit number not starting with valid prefix",
-     "id: 1234567890123456", "",
-     False, None),
-    ("FP CC: 15-digit number (too short for Visa/MC)",
-     "num: 411111111111111", "",
-     False, None),
-]
-
-
-# =====================================================================
 # Test cases — Rule 4: redact_email_addresses
 # =====================================================================
 
@@ -384,146 +266,6 @@ EMAIL_CASES = [
      False, None),
     ("FP email: at-sign in git ref",
      "HEAD@{1}", "",
-     False, None),
-]
-
-
-# =====================================================================
-# Test cases — Rule 5: redact_private_keys
-# =====================================================================
-
-PRIVATE_KEY_CASES = [
-    ("Redact: RSA private key header",
-     "-----BEGIN RSA PRIVATE KEY-----\nMIIEpQI...", "",
-     True, lambda r: "BEGIN RSA PRIVATE KEY" not in r["stdout"]),
-    ("Redact: EC private key header",
-     "-----BEGIN EC PRIVATE KEY-----\nMHQCAQ...", "",
-     True, lambda r: "BEGIN EC PRIVATE KEY" not in r["stdout"]),
-    ("Redact: DSA private key header",
-     "-----BEGIN DSA PRIVATE KEY-----\nMIIBuw...", "",
-     True, lambda r: "BEGIN DSA PRIVATE KEY" not in r["stdout"]),
-    ("Redact: OPENSSH private key header",
-     "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnN...", "",
-     True, lambda r: "BEGIN OPENSSH PRIVATE KEY" not in r["stdout"]),
-    ("Redact: generic private key header",
-     "-----BEGIN PRIVATE KEY-----\nMIIEvQI...", "",
-     True, lambda r: "BEGIN PRIVATE KEY" not in r["stdout"]),
-    ("Redact: private key footer",
-     "...data...\n-----END RSA PRIVATE KEY-----", "",
-     True, lambda r: "END RSA PRIVATE KEY" not in r["stdout"]),
-    ("Redact: EC key footer",
-     "data\n-----END EC PRIVATE KEY-----", "",
-     True, lambda r: "END EC PRIVATE KEY" not in r["stdout"]),
-    ("Redact: generic key footer",
-     "blob\n-----END PRIVATE KEY-----", "",
-     True, lambda r: "END PRIVATE KEY" not in r["stdout"]),
-    ("Redact: full key block (header + footer)",
-     "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----", "",
-     True, lambda r: "BEGIN RSA PRIVATE KEY" not in r["stdout"] and "END RSA PRIVATE KEY" not in r["stdout"]),
-
-    # False positives
-    ("FP key: public key header",
-     "-----BEGIN PUBLIC KEY-----\nMIIBIjANBg...", "",
-     False, None),
-    ("FP key: certificate header",
-     "-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWg...", "",
-     False, None),
-]
-
-
-# =====================================================================
-# Test cases — Rule 6: redact_database_connection_strings
-# =====================================================================
-
-DB_CONN_CASES = [
-    # URI format with credentials
-    ("Redact: postgres URI",
-     "postgres://admin:secret@db.example.com:5432/mydb", "",
-     True, lambda r: "admin:secret" not in r["stdout"]),
-    ("Redact: postgresql URI",
-     "postgresql://user:pass@host:5432/db", "",
-     True, lambda r: "user:pass" not in r["stdout"]),
-    ("Redact: mysql URI",
-     "mysql://root:password@mysql.internal:3306/app", "",
-     True, lambda r: "root:password" not in r["stdout"]),
-    ("Redact: mariadb URI",
-     "mariadb://admin:pwd@mariadb.local:3306/db", "",
-     True, lambda r: "admin:pwd" not in r["stdout"]),
-    ("Redact: mongodb URI",
-     "mongodb://user:pass@mongo.cluster.local:27017/app", "",
-     True, lambda r: "user:pass" not in r["stdout"]),
-    ("Redact: mongodb+srv URI",
-     "mongodb+srv://admin:secret@cluster0.abc.mongodb.net/test", "",
-     True, lambda r: "admin:secret" not in r["stdout"]),
-    ("Redact: redis URI",
-     "redis://default:mypass@redis.internal:6379/0", "",
-     True, lambda r: "default:mypass" not in r["stdout"]),
-    ("Redact: amqp URI",
-     "amqp://guest:guest@rabbit.local:5672/vhost", "",
-     True, lambda r: "guest:guest" not in r["stdout"]),
-    ("Redact: rabbitmq URI",
-     "rabbitmq://user:pass@rmq.internal:5672/", "",
-     True, lambda r: "user:pass" not in r["stdout"]),
-    ("Redact: cockroachdb URI",
-     "cockroachdb://root:secret@crdb.local:26257/defaultdb", "",
-     True, lambda r: "root:secret" not in r["stdout"]),
-    ("Redact: couchdb URI",
-     "couchdb://admin:admin@couch.local:5984/mydb", "",
-     True, lambda r: "admin:admin" not in r["stdout"]),
-    ("Redact: mssql URI",
-     "mssql://sa:StrongPass@mssql.internal:1433/master", "",
-     True, lambda r: "sa:StrongPass" not in r["stdout"]),
-
-    # Environment variable assignments
-    ("Redact: DATABASE_URL assignment",
-     "DATABASE_URL=postgres://u:p@host/db", "",
-     True, lambda r: "u:p@host" not in r["stdout"]),
-    ("Redact: MONGO_URI assignment",
-     "MONGO_URI=mongodb://u:p@host:27017/db", "",
-     True, lambda r: "u:p@host" not in r["stdout"]),
-    ("Redact: MONGODB_URI assignment",
-     "MONGODB_URI='mongodb://u:p@host/db'", "",
-     True, lambda r: "u:p@host" not in r["stdout"]),
-    ("Redact: REDIS_URL assignment",
-     "REDIS_URL=redis://default:pw@host:6379", "",
-     True, lambda r: "default:pw@" not in r["stdout"]),
-    ("Redact: AMQP_URL assignment",
-     "AMQP_URL=amqp://guest:guest@host:5672/", "",
-     True, lambda r: "guest:guest@" not in r["stdout"]),
-
-    # ADO.NET / ODBC
-    ("Redact: ADO.NET connection string",
-     "Server=myServer;Database=myDB;User Id=sa;Password=secret;", "",
-     True, lambda r: "Password" not in r["stdout"]),
-    ("Redact: ODBC with Uid and Pwd",
-     "Server=host;Uid=admin;Pwd=pass123;", "",
-     True, lambda r: "Pwd" not in r["stdout"]),
-
-    # JDBC
-    ("Redact: JDBC MySQL",
-     "jdbc:mysql://host:3306/db?user=root&password=secret", "",
-     True, lambda r: "jdbc:mysql" not in r["stdout"]),
-    ("Redact: JDBC PostgreSQL",
-     "jdbc:postgresql://db.internal:5432/app", "",
-     True, lambda r: "jdbc:postgresql" not in r["stdout"]),
-    ("Redact: JDBC SQL Server",
-     "jdbc:sqlserver://host:1433;databaseName=myDB", "",
-     True, lambda r: "jdbc:sqlserver" not in r["stdout"]),
-    ("Redact: JDBC Oracle",
-     "jdbc:oracle://host:1521/service", "",
-     True, lambda r: "jdbc:oracle" not in r["stdout"]),
-
-    # Data Source
-    ("Redact: Data Source with Password",
-     "Data Source=server;Initial Catalog=db;Password=secret", "",
-     True, lambda r: "Password" not in r["stdout"]),
-
-    # False positives
-    ("FP DB: plain URL without credentials",
-     "https://example.com/api/data", "",
-     False, None),
-    ("FP DB: database name without URI scheme",
-     "mydb on port 5432", "",
      False, None),
 ]
 
@@ -628,21 +370,12 @@ STDERR_CASES = [
     ("Redact: API key in stderr",
      "", "Error: invalid key sk-ant-abc123def456",
      True, lambda r: "sk-ant-" not in r["stderr"]),
-    ("Redact: SSN in stderr",
-     "", "Warning: found SSN: 111-22-3333",
-     True, lambda r: "111-22-3333" not in r["stderr"]),
     ("Redact: email in stderr",
      "", "Failed to send to admin@corp.com",
      True, lambda r: "admin@corp.com" not in r["stderr"]),
     ("Redact: internal IP in stderr",
      "", "Connection refused: 10.0.0.5:3000",
      True, lambda r: "10.0.0.5" not in r["stderr"]),
-    ("Redact: DB URI in stderr",
-     "", "Error connecting: postgres://u:p@db.local:5432/app",
-     True, lambda r: "u:p@" not in r["stderr"]),
-    ("Redact: private key in stderr",
-     "", "-----BEGIN RSA PRIVATE KEY-----\nMIIEpA...",
-     True, lambda r: "BEGIN RSA PRIVATE KEY" not in r["stderr"]),
 
     # Both stdout and stderr
     ("Redact: sensitive data in both stdout and stderr",
@@ -707,12 +440,10 @@ def test_redaction_replaces_with_marker(t: TestRunner):
 
 def test_multiple_rules_redact_all(t: TestRunner):
     """Verify multiple rule hits in one output all get redacted."""
-    text = "key=sk-ant-abc123 ssn=123-45-6789 card=4111111111111111 email=x@y.com ip=10.0.0.1"
+    text = "key=sk-ant-abc123 email=x@y.com ip=10.0.0.1"
     result = _run_sanitizer(stdout=text)
     ok = (result["redacted"]
           and "sk-ant-" not in result["stdout"]
-          and "123-45-6789" not in result["stdout"]
-          and "4111111111111111" not in result["stdout"]
           and "x@y.com" not in result["stdout"]
           and "10.0.0.1" not in result["stdout"])
     t.check("Multiple rules all redact in single output", ok, True)
@@ -906,9 +637,10 @@ def test_input_nonexistent_config(t: TestRunner):
 def test_audit_log_on_redaction(t: TestRunner):
     """Verify audit log entry is written on redaction."""
     import tempfile, subprocess, glob, time
-    audit_dir = tempfile.mkdtemp()
-    audit_log = os.path.join(audit_dir, "audit.log")
-    env = {**os.environ, "HOOK_AUDIT_LOG": audit_log}
+    # Free tier: audit.log is written to the hooks dir (no custom path)
+    audit_log = os.path.join(HOOKS_DIR, "audit.log")
+    # Record pre-existing size to detect new entries
+    pre_size = os.path.getsize(audit_log) if os.path.isfile(audit_log) else 0
 
     hook_input = {
         "session_id": "audit-test",
@@ -921,22 +653,21 @@ def test_audit_log_on_redaction(t: TestRunner):
         [sys.executable, OUTPUT_SANITIZER, SANITIZER_RULES],
         input=json.dumps(hook_input),
         capture_output=True, text=True,
-        env=env,
     )
 
     logged = False
     if os.path.isfile(audit_log):
         with open(audit_log) as f:
+            f.seek(pre_size)
             for line in f:
-                entry = json.loads(line)
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
                 if entry.get("filter") == "output_sanitizer" and entry.get("action") == "redact":
                     logged = True
                     break
     t.check("Audit log records redaction event", logged, True)
-
-    # Clean up
-    import shutil
-    shutil.rmtree(audit_dir, ignore_errors=True)
 
 
 def test_no_audit_log_on_pass_through(t: TestRunner):
@@ -973,43 +704,6 @@ def test_no_audit_log_on_pass_through(t: TestRunner):
 # Test cases — Anonymization modes (pseudonymize, hash, redact)
 # =====================================================================
 
-def test_anonymization_pseudonymize_mode(t: TestRunner):
-    """Pseudonymize mode replaces with [PII-{8-char-hash}]."""
-    config = {
-        "rules": [{
-            "name": "pseudo_rule",
-            "action": "redact",
-            "match": "any",
-            "anonymization_mode": "pseudonymize",
-            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
-        }]
-    }
-    result = _run_with_config(config, stdout="SSN: 123-45-6789")
-    ok = (result["redacted"]
-          and "123-45-6789" not in result["stdout"]
-          and "[PII-" in result["stdout"]
-          and result["stdout"].count("[PII-") == 1)
-    t.check("Pseudonymize: SSN replaced with [PII-{hash}]", ok, True)
-
-
-def test_anonymization_hash_mode(t: TestRunner):
-    """Hash mode replaces with sha256:{full-hash}."""
-    config = {
-        "rules": [{
-            "name": "hash_rule",
-            "action": "redact",
-            "match": "any",
-            "anonymization_mode": "hash",
-            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
-        }]
-    }
-    result = _run_with_config(config, stdout="SSN: 123-45-6789")
-    ok = (result["redacted"]
-          and "123-45-6789" not in result["stdout"]
-          and "sha256:" in result["stdout"])
-    t.check("Hash: SSN replaced with sha256:{hash}", ok, True)
-
-
 def test_anonymization_redact_mode_default(t: TestRunner):
     """Default (redact) mode uses [REDACTED]."""
     config = {
@@ -1017,98 +711,14 @@ def test_anonymization_redact_mode_default(t: TestRunner):
             "name": "redact_rule",
             "action": "redact",
             "match": "any",
-            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
+            "patterns": [{"pattern": r"sk-ant-[a-zA-Z0-9\-]+", "label": "API key"}],
         }]
     }
-    result = _run_with_config(config, stdout="SSN: 123-45-6789")
+    result = _run_with_config(config, stdout="key: sk-ant-abc123def456")
     ok = (result["redacted"]
-          and "123-45-6789" not in result["stdout"]
+          and "sk-ant-" not in result["stdout"]
           and "[REDACTED]" in result["stdout"])
-    t.check("Redact (default): SSN replaced with [REDACTED]", ok, True)
-
-
-def test_anonymization_pseudonymize_deterministic(t: TestRunner):
-    """Same input always produces same pseudonym token."""
-    import hashlib
-    config = {
-        "rules": [{
-            "name": "pseudo_determ",
-            "action": "redact",
-            "match": "any",
-            "anonymization_mode": "pseudonymize",
-            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
-        }]
-    }
-    result1 = _run_with_config(config, stdout="SSN: 123-45-6789")
-    result2 = _run_with_config(config, stdout="SSN: 123-45-6789")
-    # Both should produce the same token
-    expected_token = hashlib.sha256("123-45-6789".encode()).hexdigest()[:8]
-    expected = f"[PII-{expected_token}]"
-    ok = (expected in result1["stdout"] and expected in result2["stdout"])
-    t.check("Pseudonymize: deterministic — same input same token", ok, True)
-
-
-def test_anonymization_hash_full_sha256(t: TestRunner):
-    """Hash mode produces full 64-char SHA-256."""
-    import hashlib
-    config = {
-        "rules": [{
-            "name": "hash_full",
-            "action": "redact",
-            "match": "any",
-            "anonymization_mode": "hash",
-            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
-        }]
-    }
-    result = _run_with_config(config, stdout="SSN: 123-45-6789")
-    expected_hash = hashlib.sha256("123-45-6789".encode()).hexdigest()
-    ok = result["redacted"] and f"sha256:{expected_hash}" in result["stdout"]
-    t.check("Hash: produces full 64-char SHA-256", ok, True)
-
-
-def test_anonymization_unknown_mode_defaults_redact(t: TestRunner):
-    """Unknown anonymization_mode falls back to [REDACTED]."""
-    config = {
-        "rules": [{
-            "name": "unknown_mode",
-            "action": "redact",
-            "match": "any",
-            "anonymization_mode": "unknown_value",
-            "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
-        }]
-    }
-    result = _run_with_config(config, stdout="SSN: 123-45-6789")
-    ok = result["redacted"] and "[REDACTED]" in result["stdout"]
-    t.check("Unknown anonymization_mode defaults to [REDACTED]", ok, True)
-
-
-def test_anonymization_per_rule_config(t: TestRunner):
-    """Different rules can have different anonymization modes."""
-    config = {
-        "rules": [
-            {
-                "name": "rule_pseudo",
-                "action": "redact",
-                "match": "any",
-                "anonymization_mode": "pseudonymize",
-                "patterns": [{"pattern": r"\d{3}-\d{2}-\d{4}", "label": "SSN"}],
-            },
-            {
-                "name": "rule_hash",
-                "action": "redact",
-                "match": "any",
-                "anonymization_mode": "hash",
-                "patterns": [{"pattern": r"sk-ant-[a-zA-Z0-9\-]+", "label": "API key"}],
-            },
-        ]
-    }
-    result = _run_with_config(config, stdout="SSN: 123-45-6789 key=sk-ant-abc123def")
-    ok = (result["redacted"]
-          and "[PII-" in result["stdout"]
-          and "sha256:" in result["stdout"]
-          and "123-45-6789" not in result["stdout"]
-          and "sk-ant-" not in result["stdout"])
-    t.check("Per-rule: pseudonymize SSN + hash API key", ok, True)
+    t.check("Redact (default): API key replaced with [REDACTED]", ok, True)
 
 
 def test_case_insensitive_redaction(t: TestRunner):
@@ -1166,11 +776,7 @@ def main():
 
     # Data-driven per-rule tests
     _run_cases(t, "API key redaction (Rule 1)", API_KEY_CASES)
-    _run_cases(t, "SSN redaction (Rule 2)", SSN_CASES)
-    _run_cases(t, "Credit card redaction (Rule 3)", CREDIT_CARD_CASES)
     _run_cases(t, "Email redaction (Rule 4)", EMAIL_CASES)
-    _run_cases(t, "Private key redaction (Rule 5)", PRIVATE_KEY_CASES)
-    _run_cases(t, "Database connection string redaction (Rule 6)", DB_CONN_CASES)
     _run_cases(t, "Internal IP redaction (Rule 7)", INTERNAL_IP_CASES)
     _run_cases(t, "Stderr redaction", STDERR_CASES)
     _run_cases(t, "Pass-through (safe output)", PASS_THROUGH_CASES)
@@ -1214,13 +820,7 @@ def main():
     test_unicode_normalization(t)
 
     t.section("Anonymization modes")
-    test_anonymization_pseudonymize_mode(t)
-    test_anonymization_hash_mode(t)
     test_anonymization_redact_mode_default(t)
-    test_anonymization_pseudonymize_deterministic(t)
-    test_anonymization_hash_full_sha256(t)
-    test_anonymization_unknown_mode_defaults_redact(t)
-    test_anonymization_per_rule_config(t)
 
     sys.exit(t.summary())
 

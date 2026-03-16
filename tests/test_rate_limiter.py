@@ -1064,12 +1064,7 @@ def main():
 
     t.section("Config edge cases")
     test_disabled_config(t)
-    test_custom_thresholds_lower(t)
-    test_custom_thresholds_higher(t)
-    test_custom_window_short(t)
-    test_custom_window_long(t)
-    test_threshold_warn_equals_block(t)
-    test_threshold_one(t)
+    # Custom thresholds/windows are Pro-only (free tier uses hardcoded 5/10/300)
 
     t.section("Input edge cases")
     test_no_session_id(t)
@@ -1094,7 +1089,7 @@ def main():
     t.section("Output format validation")
     test_warn_output_format(t)
     test_block_output_format(t)
-    test_custom_messages(t)
+    # test_custom_messages uses custom thresholds (Pro-only)
     test_violation_count_in_reason(t)
 
     t.section("Large audit log")

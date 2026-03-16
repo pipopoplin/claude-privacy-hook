@@ -378,12 +378,15 @@ def main():
 
     args = parser.parse_args()
 
+    # Free tier: only 'list' is available. Other commands require Pro.
+    PRO_COMMANDS = {"add", "remove", "validate", "test"}
+    if args.subcommand in PRO_COMMANDS:
+        print(f"The '{args.subcommand}' command requires Pro tier.", file=sys.stderr)
+        print("Upgrade at: https://claude-privacy-hook.dev/pro", file=sys.stderr)
+        sys.exit(1)
+
     commands = {
-        "add": cmd_add,
         "list": cmd_list,
-        "remove": cmd_remove,
-        "validate": cmd_validate,
-        "test": cmd_test,
     }
 
     sys.exit(commands[args.subcommand](args))

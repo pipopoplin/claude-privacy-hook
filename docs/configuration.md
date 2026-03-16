@@ -27,7 +27,7 @@ Add a pattern to the `allow_trusted_endpoints` rule in `.claude/hooks/filter_rul
 {"pattern": "https?://api\\.your-company\\.com", "label": "Your API"}
 ```
 
-Or use the override CLI:
+Or use the override CLI (Pro tier):
 
 ```bash
 python3 .claude/hooks/override_cli.py add --scope project \
@@ -50,10 +50,32 @@ Each rule in the JSON config files follows this structure:
 | `action` | `allow`, `deny`, or `ask` |
 | `overridable` | `true` or `false` — whether overrides can bypass this rule |
 | `match` | `any` (one pattern suffices) or `all` (all must match) |
-| `patterns` | Array of regex patterns |
+| `patterns` | Array of regex patterns with `pattern` and `label` |
+| `data_classification` | Data sensitivity: `restricted`, `confidential`, `internal`, or `public` |
+| `scf` | SCF metadata object (see below) |
 | `tool_name` | Optional — restrict rule to a specific tool |
 | `enabled` | Optional — set `false` to disable a rule |
 | `description` | Human-readable rule description |
+
+### SCF Metadata (`scf` object)
+
+Every rule includes SCF compliance metadata. In Pro tier, this metadata is used by the audit logger, evidence collector, and risk scoring:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `domain` | SCF domain code | `"IAC"`, `"PRI"`, `"NET"` |
+| `controls` | List of SCF control IDs | `["IAC-01", "IAC-06"]` |
+| `regulations` | Applicable regulations | `["GDPR Art.32", "PCI-DSS Req.3"]` |
+| `risk_level` | Risk criticality | `"critical"`, `"high"`, `"medium"`, `"low"` |
+
+### Data Classification Levels
+
+| Level | Description | Examples |
+|-------|-------------|---------|
+| `restricted` | Highest sensitivity — legally regulated | SSNs, credit cards, private keys, passwords |
+| `confidential` | Business-sensitive | API keys, employee IDs, customer IDs |
+| `internal` | Infrastructure details | Internal IPs, base64 payloads, shell obfuscation |
+| `public` | Non-sensitive | Trusted endpoint allowlist |
 
 Rules are evaluated top-to-bottom. `deny` rules are ordered before `ask` rules. First match wins.
 
@@ -61,18 +83,18 @@ Rules are evaluated top-to-bottom. `deny` rules are ordered before `ask` rules. 
 
 | File | Description |
 |------|-------------|
-| `filter_rules.json` | Bash rules (18 rules, ~180 patterns) |
-| `filter_rules_write.json` | Write/Edit rules (8 rules) |
+| `filter_rules.json` | Bash rules (6 rules, ~80 patterns). Pro extends to 18 rules, ~180 patterns. |
+| `filter_rules_write.json` | Write/Edit rules (3 rules). Pro extends to 8 rules. |
 | `filter_rules_read.json` | Read rules (1 rule) |
-| `output_sanitizer_rules.json` | Output redaction rules (7 rules) |
+| `output_sanitizer_rules.json` | Output redaction rules (3 rules, redact only). Pro extends to 7 rules with 3 anonymization modes. |
 | `rate_limiter_config.json` | Rate limiter thresholds and window |
 | `config_overrides.json` | Project-level override exceptions |
 
 ## Override System
 
-The two-layer override system allows exceptions without editing rule files.
+Project-level only (max 3 overrides). The `list` CLI command is available in free tier. User-level overrides, unlimited overrides, and full CLI (add/remove/validate/test) require Pro.
 
-### Override File Format (`config_overrides.json`)
+### Override File Format (`config_overrides.json` — max 3 overrides, project-level only)
 
 ```json
 {
@@ -107,29 +129,29 @@ The two-layer override system allows exceptions without editing rule files.
 
 ### Override Locations
 
-| Layer | File Path | Priority |
-|-------|-----------|----------|
-| User | `~/.claude/hooks/config_overrides.json` | Highest |
-| Project | `.claude/hooks/config_overrides.json` | Lower |
+| Layer | File Path | Tier |
+|-------|-----------|------|
+| Project | `.claude/hooks/config_overrides.json` | Free (max 3) |
+| User | `~/.claude/hooks/config_overrides.json` | Pro only |
 
 ### Override CLI
 
 ```bash
-# Add an override
+# List overrides (free tier)
+python3 .claude/hooks/override_cli.py list [--scope project]
+
+# Pro tier: Add an override
 python3 .claude/hooks/override_cli.py add --scope user|project \
   --rule RULE_NAME --pattern 'REGEX' --label 'Label' \
   [--expires 2026-12-31] [--reason "Justification"]
 
-# List overrides
-python3 .claude/hooks/override_cli.py list [--scope user|project|all]
-
-# Remove an override
+# Pro tier: Remove an override
 python3 .claude/hooks/override_cli.py remove --scope user|project --name NAME
 
-# Validate overrides against current rules
+# Pro tier: Validate overrides against current rules
 python3 .claude/hooks/override_cli.py validate [--scope user|project|all]
 
-# Test if a command would be overridden
+# Pro tier: Test if a command would be overridden
 python3 .claude/hooks/override_cli.py test --command "COMMAND" --rule RULE_NAME
 ```
 
@@ -139,17 +161,43 @@ Managed deployment (IT-enforced non-overridable rules) is available in [claude-p
 
 ## Output Sanitizer Rules
 
-Edit `.claude/hooks/output_sanitizer_rules.json` to customize what gets redacted from command output. Uses the same rule format as the regex filter.
+Edit `.claude/hooks/output_sanitizer_rules.json` to customize what gets redacted from command output. Uses the same rule format as the regex filter. Free tier supports `redact` mode only (`[REDACTED]`).
+
+| Mode | Output Format | Tier |
+|------|---------------|------|
+| `redact` (default) | `[REDACTED]` | Free |
+| `pseudonymize` | `[PII-{8-char-hash}]` | **Pro only** — enables correlation without exposing PII |
+| `hash` | `sha256:{64-char-hash}` | **Pro only** — forensic integrity, irreversible full hash |
+
+## Audit Logger Settings
+
+Free tier: basic JSONL logging to `{hooks_dir}/audit.log`. No configuration required.
+
+Log rotation (`HOOK_AUDIT_LOG_MAX_BYTES`, `HOOK_AUDIT_LOG_BACKUP_COUNT`), data minimization (`HOOK_AUDIT_LOG_MINIMIZE`), custom log paths (`HOOK_AUDIT_LOG`), and SCF metadata in log entries require Pro.
+
+## Risk Scoring
+
+**Pro tier only.** The override CLI calculates a risk score (1-10) when adding overrides, based on four factors:
+
+| Factor | Values |
+|--------|--------|
+| `data_classification` | restricted=4, confidential=3, internal=2, public=1 |
+| `scf.risk_level` | critical=4, high=3, medium=2, low=1 |
+| Scope | project=+1 (team-wide), user=+0 |
+| Expiry | no expiry=+1, >90 days=+1, ≤90 days=+0 |
+
+Score ≥ 8 triggers a warning. All override add/remove actions are logged to the audit trail.
 
 ## Rate Limiter Settings
 
-Edit `.claude/hooks/rate_limiter_config.json`:
+Free tier uses fixed thresholds (not configurable):
 
-| Setting | Default | Description |
-|---------|---------|-------------|
+| Setting | Value | Description |
+|---------|-------|-------------|
 | `warn_threshold` | 5 | Number of violations before warning |
 | `block_threshold` | 10 | Number of violations before blocking |
 | `window_seconds` | 300 | Rolling window size (5 minutes) |
-| `cooldown_seconds` | 60 | Cooldown period after block |
+
+Configurable thresholds and cooldown settings require Pro.
 
 > NLP configuration (PII detection sensitivity, plugin settings, entity type selection) is available in [claude-privacy-hook-pro](https://github.com/anthropics/claude-privacy-hook-pro).

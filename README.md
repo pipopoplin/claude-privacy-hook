@@ -33,11 +33,11 @@ Three independent security layers run on every action — total latency under 1m
 
 | Layer | What it does |
 |-------|-------------|
-| **Regex filter** | Living control set — pattern-matches 180+ known credential formats, attack signatures, and sensitive data (18 rules) |
-| **Rate limiter** | Escalates when too many suspicious actions happen in a session |
-| **Output sanitizer** | Redacts sensitive data from command results after execution |
+| **Regex filter** | Living control set — pattern-matches 80+ known credential formats, attack signatures, and sensitive data (6 rules) |
+| **Rate limiter** | Escalates when too many suspicious actions happen in a session (fixed thresholds) |
+| **Output sanitizer** | Redacts sensitive data from command results after execution (3 rules). Pseudonymize and hash modes available in Pro. |
 
-All blocked events are written to an audit log — evidence of control effectiveness for review and compliance.
+All blocked events are written to an audit log — evidence of control effectiveness for review and compliance. Log rotation, data minimization, SCF metadata, and breach detection are available in Pro.
 
 ---
 
@@ -77,19 +77,21 @@ Restart Claude Code or run `/hooks` to activate.
 | **Zero trust** | Every action is checked, not just the ones you think of |
 | **No workflow disruption** | Trusted tools and endpoints are pre-approved |
 | **Defense in depth** | Three independent layers — no single bypass compromises everything |
-| **Compliance-ready** | Maps to [110 security controls](docs/compliance.md) across 22 SCF domains, GDPR, EU AI Act, DORA, NIS2, SOC 2, and more |
+| **Compliance-ready** | Maps to 27+ security controls. Pro extends to [111 controls](docs/compliance.md) across 23 SCF domains, GDPR, EU AI Act, DORA, NIS2, SOC 2, and more |
 | **Fully auditable** | Every blocked action logged with timestamps, patterns, and command hashes |
+| **Breach detection** | Automatic breach candidate identification with GDPR Art.33-compliant report generation (Pro) |
+| **Privacy by design** | Redact-only output sanitization. Audit log minimization, pseudonymization/hashing, and configurable rotation available in Pro |
 | **No cloud dependency** | Everything runs locally, nothing phones home |
 
 ---
 
 ## Compliance Coverage
 
-110 security controls across 22 SCF domains mapped to industry regulations — [full matrix →](docs/compliance.md)
+27+ security controls in the free tier. Pro extends to 111 controls across 23 SCF domains — [full matrix →](docs/compliance.md)
 
 | Regulation / Framework | What's covered | Controls |
 |------------------------|---------------|----------|
-| **SCF** | 22 domains: IAC, CRY, NET, PRI, DCH, THR, GOV, IRO, MON, AAT, CHG, CFG, SEA, TDA, and more | 110 |
+| **SCF** | 23 domains: IAC, CRY, NET, PRI, DCH, THR, GOV, IRO, MON, AAT, CHG, CFG, SEA, SAI, TDA, and more | 111 |
 | **GDPR** | Personal data (Art.4), special categories (Art.9), security (Art.32), accountability (Art.5), breach notification (Art.33), transfers (Art.44) | 28 |
 | **EU AI Act** | Risk management (Art.9), human oversight (Art.14), record-keeping (Art.12), transparency (Art.52), incident reporting (Art.73) | 12 |
 | **ISO 42001** | AI management system (§4), risk assessment (§6), change management, data quality (§A.7), verification (§A.6) | 8 |
@@ -111,7 +113,7 @@ Works out of the box. To customize:
 - **Allow a trusted endpoint** — add a URL pattern to `filter_rules.json`, or use the [override CLI](docs/configuration.md#override-cli)
 - **Disable a rule** — set `"enabled": false` in the rule config
 
-Teams can add exceptions with the [two-layer change management system](docs/configuration.md#override-system) — no need to edit rule files.
+Teams can add exceptions with the [override system](docs/configuration.md#override-system) (project-level, max 3, `list` only). Full override CLI (add/remove/validate/test) and user-level overrides require Pro.
 
 See the full [Configuration guide](docs/configuration.md).
 
@@ -121,18 +123,26 @@ See the full [Configuration guide](docs/configuration.md).
 
 | Feature | Free (MIT) | Pro (BSL 1.1) |
 |---------|-----------|---------------|
-| Regex-based PII detection (18 rules, ~180 patterns) | ✅ | ✅ |
-| Write/Edit content filtering | ✅ | ✅ |
+| Regex-based PII detection (6 rules, ~80 patterns) | ✅ | ✅ 18 rules, ~180 patterns |
+| Write/Edit content filtering (3 rules) | ✅ | ✅ 8 rules |
 | Read path protection | ✅ | ✅ |
-| Output sanitizer (7 redaction rules) | ✅ | ✅ |
-| Rate limiter (violation escalation) | ✅ | ✅ |
-| Audit logging | ✅ | ✅ Enhanced (SIEM) |
-| User & project overrides | ✅ Free rules | ✅ All rules |
+| Output sanitizer (3 rules, redact only) | ✅ | ✅ 7 rules, 3 anonymization modes |
+| Rate limiter (fixed thresholds: warn=5, block=10, 300s window) | ✅ | ✅ Configurable thresholds |
+| Basic audit logging (JSONL) | ✅ | ✅ Enhanced (SCF metadata, SIEM) |
+| Project-level overrides (max 3, `list` only) | ✅ | ✅ User + project, unlimited, full CLI |
+| Audit log rotation and data minimization | — | ✅ |
+| Breach notification reports (GDPR Art.33) | — | ✅ |
+| Evidence collector (SCF compliance reports) | — | ✅ |
+| Cross-session situational awareness | — | ✅ |
+| Risk scoring for override requests | — | ✅ |
+| Override CLI add/remove/validate/test | — | ✅ |
 | NLP-based PII detection (spaCy, Presidio, DistilBERT) | — | ✅ |
+| SIEM integration (Splunk, Datadog, Elasticsearch, CEF/LEEF) | — | ✅ |
+| Compliance dashboard (HTML, Grafana, Prometheus, Kibana) | — | ✅ |
+| SBOM generation (CycloneDX 1.5) | — | ✅ |
 | 7 pluggable detection backends | — | ✅ |
 | Managed/IT deployment overrides | — | ✅ |
 | Cross-module integrity validation | — | ✅ |
-| Fleet/central config management | — | Roadmap |
 
 ### Upgrade to Pro
 
@@ -146,12 +156,12 @@ NLP-powered PII detection alongside regex rules for comprehensive coverage.
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](docs/architecture.md) | Hook pipeline internals, layer details, project structure |
+| [Architecture](../docs/architecture.md) | Hook pipeline internals, layer details, project structure |
 | [Configuration](docs/configuration.md) | Rule format, override system, all options |
-| [Compliance](docs/compliance.md) | 110 security controls across 22 SCF domains, GDPR, EU AI Act, DORA, NIS2, SOC 2 |
+| [Compliance](docs/compliance.md) | 27+ free tier controls, 111 in Pro — SCF, GDPR, EU AI Act, DORA, NIS2, SOC 2 |
 | [Performance](docs/performance.md) | Latency and throughput benchmarks for every component |
-| [Testing](docs/testing.md) | 979 tests across 5 suites, how to run and add tests |
-| [Diagrams](docs/sequence-diagram.md) | Visual pipeline sequence and decision flow |
+| [Testing](docs/testing.md) | ~714 tests across 7 suites, how to run and add tests |
+| [Diagrams](../docs/sequence-diagram.md) | Visual pipeline sequence and decision flow |
 | [Plugins](docs/plugins.md) | Plugin system (Pro tier) |
 | [Benchmarks](benchmarks/README.md) | Full benchmark methodology and results |
 

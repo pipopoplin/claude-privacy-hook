@@ -1,28 +1,32 @@
-chec# Testing
+# Testing
 
 ## Running Tests
 
 ```bash
-# Run all 979 tests across 5 suites
+# Run all 714 tests across 7 suites
 python3 tests/run_all.py
 
 # Run individual suites
-python3 tests/test_regex_filter.py      # Regex filter (518 cases)
-python3 tests/test_output_sanitizer.py  # Output sanitizer (179 cases)
-python3 tests/test_rate_limiter.py      # Rate limiter (60 cases)
-python3 tests/test_overrides.py         # Override system (74 cases)
+python3 tests/test_regex_filter.py      # Regex filter (298 cases)
+python3 tests/test_output_sanitizer.py  # Output sanitizer (111 cases)
+python3 tests/test_rate_limiter.py      # Rate limiter (45 cases)
+python3 tests/test_overrides.py         # Override system + risk scoring (50 cases)
 python3 tests/test_conftest.py          # Test infrastructure (148 cases)
+python3 tests/test_audit_logger.py      # Audit logger (19 cases)
+python3 tests/test_config_validation.py # Config validation (43 cases)
 ```
 
 ## Test Suites
 
 | Suite | File | Cases | What it tests |
 |-------|------|-------|---------------|
-| **Regex Filter** | `test_regex_filter.py` | 518 | Pattern matching for Bash, Write/Edit, and Read rules |
-| **Output Sanitizer** | `test_output_sanitizer.py` | 179 | API keys (20 patterns), SSNs, credit cards, emails, private keys, DB connections, internal IPs, stderr, config/input edge cases, audit logging, Unicode |
-| **Rate Limiter** | `test_rate_limiter.py` | 60 | Threshold boundaries, action filtering, session isolation, time window, config variants, malformed input, output format |
-| **Overrides** | `test_overrides.py` | 74 | Resolver unit tests, integration allows, non-overridable rules, edge cases, audit logging, CLI tool, performance |
+| **Regex Filter** | `test_regex_filter.py` | 298 | Pattern matching for Bash, Write/Edit, and Read rules |
+| **Output Sanitizer** | `test_output_sanitizer.py` | 111 | API keys, passwords, private keys, stderr, config/input edge cases, audit logging, Unicode, redact mode (Pro tier for pseudonymize/hash) |
+| **Rate Limiter** | `test_rate_limiter.py` | 45 | Threshold boundaries, action filtering, session isolation, time window, config variants, malformed input, output format |
+| **Overrides** | `test_overrides.py` | 50 | Resolver unit tests, integration allows, non-overridable rules, edge cases, audit logging, CLI tool, performance, risk scoring (factors, clamping, thresholds), override audit trail |
 | **Conftest Infrastructure** | `test_conftest.py` | 148 | Path constants, parse_decision, detected, run_hook_raw, run_hook, TestRunner, integration round-trips, edge cases |
+| **Audit Logger** | `test_audit_logger.py` | 19 | Basic JSONL logging, override fields (name, source), command hash, redact preview, matched patterns cap |
+| **Config Validation** | `test_config_validation.py` | 43 | data_classification on all rules, SCF metadata (domain, risk_level, controls) on all rules, rule counts per config, deny-before-allow ordering |
 
 ## Shared Infrastructure
 

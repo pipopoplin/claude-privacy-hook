@@ -6,9 +6,9 @@ Every hook is benchmarked at two levels: **subprocess** (real-world latency incl
 
 | Stage | Subprocess (p50) | In-process | Notes |
 |-------|----------------:|----------:|-------|
-| Regex filter | 24ms | 0.07ms | 18 rules, ~180 patterns |
+| Regex filter | 24ms | 0.07ms | 6 rules, ~80 patterns |
 | Rate limiter | 20ms | 0.06ms | ~50 audit log entries |
-| Output sanitizer | 20ms | 0.02ms | 7 redaction rules |
+| Output sanitizer | 20ms | 0.02ms | 3 redaction rules |
 | **Total** | **~64ms** | **~0.15ms** | Subprocess dominated by Python startup |
 
 Write/Edit and Read paths only run the regex filter (~20ms subprocess, <0.01ms in-process).
@@ -36,5 +36,7 @@ python3 benchmarks/bench_overrides.py          # Override resolver
 python3 benchmarks/bench_hook_utils.py         # Unicode normalization + field resolution
 python3 benchmarks/bench_audit_logger.py       # Audit log write performance
 ```
+
+> **Note:** Performance numbers may improve with the reduced free-tier rule set (6 Bash rules, 3 Write rules, 3 sanitizer rules). Pro tier benchmarks with the full 40-rule set are available in the [Pro documentation](https://github.com/anthropics/claude-privacy-hook-pro).
 
 See the full [Benchmark README](../benchmarks/README.md) for methodology, all scenarios, and detailed results.
